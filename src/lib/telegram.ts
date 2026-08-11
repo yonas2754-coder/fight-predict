@@ -1,4 +1,19 @@
-import type { TelegramWebApp } from "@/types/telegram";
+"use client";
+
+export type TelegramWebApp = {
+  initData: string;
+  initDataUnsafe: {
+    user?: {
+      id: number;
+      first_name: string;
+      last_name?: string;
+      username?: string;
+      photo_url?: string;
+    };
+  };
+  ready: () => void;
+  expand: () => void;
+};
 
 declare global {
   interface Window {
@@ -8,22 +23,10 @@ declare global {
   }
 }
 
-export function getTelegramWebApp() {
+export function getTelegramWebApp(): TelegramWebApp | null {
   if (typeof window === "undefined") {
     return null;
   }
 
   return window.Telegram?.WebApp ?? null;
-}
-
-export function getTelegramUser() {
-  const webApp = getTelegramWebApp();
-
-  return webApp?.initDataUnsafe?.user ?? null;
-}
-
-export function getTelegramInitData() {
-  const webApp = getTelegramWebApp();
-
-  return webApp?.initData ?? "";
 }

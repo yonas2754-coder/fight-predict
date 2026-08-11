@@ -1,18 +1,13 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import Script from "next/script";
-import "./globals.css";
-import TelegramProvider from "@/components/telegram/telegram-provider";
-export const metadata: Metadata = {
-  title: "FightPredict",
-  description:
-    "Telegram MMA fight prediction game",
-};
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-  themeColor: "#000000",
+import TelegramProvider from "@/components/telegram/telegram-provider";
+
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "Fight Predict",
+  description: "MMA virtual prediction game",
 };
 
 export default function RootLayout({
@@ -24,13 +19,13 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <Script
-          src="https://telegram.org/js/telegram-web-app.js?63"
+          src="https://telegram.org/js/telegram-web-app.js?57"
           strategy="beforeInteractive"
         />
 
-        <TelegramProvider>
-  {children}
-</TelegramProvider>
+      <TelegramProvider>
+          {children}
+        </TelegramProvider>
       </body>
     </html>
   );
