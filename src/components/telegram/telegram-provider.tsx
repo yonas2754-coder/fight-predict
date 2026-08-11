@@ -9,16 +9,24 @@ import {
 
 import { getTelegramWebApp } from "@/lib/telegram";
 
-type TelegramUser = {
-  id: number;
-  first_name: string;
-  last_name?: string;
-  username?: string;
-  photo_url?: string;
+type User = {
+  id: string;
+  telegramId: string;
+
+  username: string | null;
+
+  firstName: string;
+  lastName: string | null;
+
+  photoUrl: string | null;
+
+  balance: number;
+
+  role: "USER" | "ADMIN";
 };
 
 type TelegramContextType = {
-  telegramUser: TelegramUser | null;
+  user: User | null;
   initData: string;
   isTelegram: boolean;
   loading: boolean;
@@ -26,14 +34,16 @@ type TelegramContextType = {
 
 const TelegramContext =
   createContext<TelegramContextType>({
-    telegramUser: null,
+    user: null,
     initData: "",
     isTelegram: false,
     loading: true,
   });
 
 export function useTelegram() {
-  return useContext(TelegramContext);
+  return useContext(
+    TelegramContext,
+  );
 }
 
 export default function TelegramProvider({
@@ -41,8 +51,8 @@ export default function TelegramProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [telegramUser, setTelegramUser] =
-    useState<TelegramUser | null>(null);
+  const [user, setUser] =
+    useState<User | null>(null);
 
   const [initData, setInitData] =
     useState("");
@@ -54,37 +64,82 @@ export default function TelegramProvider({
     useState(true);
 
   useEffect(() => {
-    const webApp =
-      getTelegramWebApp();
+    async function initialize() {
+      const webApp =
+        getTelegramWebApp();
 
-    if (!webApp) {
-      setLoading(false);
-      return;
+      if (!webApp) {
+        setLoading(false);
+        return;
+      }
+
+      setIsTelegram(true);
+
+      webApp.ready();
+      webApp.expand();
+
+      const data =
+        webApp.initData || "";
+
+      setInitData(data);
+
+      if (!data) {
+        console.error(
+          "Telegram initData is missing",
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response =
+          await fetch(
+            "/api/auth/telegram",
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify({
+                initData: data,
+              }),
+            },
+          );
+
+        const result =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            result.error ||
+              "Authentication failed",
+          );
+        }
+
+        setUser(
+          result.data.user,
+        );
+      } catch (error) {
+        console.error(
+          "Telegram authentication failed:",
+          error,
+        );
+      } finally {
+        setLoading(false);
+      }
     }
 
-    setIsTelegram(true);
-
-    webApp.ready();
-
-    webApp.expand();
-
-    setInitData(
-      webApp.initData || "",
-    );
-
-    if (webApp.initDataUnsafe?.user) {
-      setTelegramUser(
-        webApp.initDataUnsafe.user as TelegramUser,
-      );
-    }
-
-    setLoading(false);
+    initialize();
   }, []);
 
   return (
     <TelegramContext.Provider
       value={{
-        telegramUser,
+        user,
         initData,
         isTelegram,
         loading,
