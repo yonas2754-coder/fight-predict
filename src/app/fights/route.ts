@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
@@ -9,6 +10,7 @@ export async function GET() {
           in: ["UPCOMING", "LIVE"],
         },
       },
+
       orderBy: {
         scheduledAt: "asc",
       },
@@ -19,7 +21,7 @@ export async function GET() {
       data: fights,
     });
   } catch (error) {
-    console.error("Get fights error:", error);
+    console.error("Failed to load fights:", error);
 
     return NextResponse.json(
       {
