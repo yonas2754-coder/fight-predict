@@ -29,6 +29,13 @@ export async function GET(request: NextRequest) {
       },
       select: {
         id: true,
+        balance: true,
+        transactions: {
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 50,
+        },
       },
     });
 
@@ -42,48 +49,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const predictions =
-      await prisma.prediction.findMany({
-        where: {
-          userId: user.id,
-        },
-
-        include: {
-          fight: {
-            select: {
-              id: true,
-              title: true,
-              fighterAName: true,
-              fighterBName: true,
-              fighterAProbability: true,
-              fighterBProbability: true,
-              status: true,
-              scheduledAt: true,
-            },
-          },
-        },
-
-        orderBy: {
-          createdAt: "desc",
-        },
-
-        take: 50,
-      });
-
     return NextResponse.json({
       success: true,
-      data: predictions,
+      data: {
+        balance: user.balance,
+        transactions: user.transactions,
+      },
     });
   } catch (error) {
-    console.error(
-      "Prediction history error:",
-      error,
-    );
+    console.error("Wallet error:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to load prediction history",
+        error: "Failed to load wallet",
       },
       { status: 500 },
     );

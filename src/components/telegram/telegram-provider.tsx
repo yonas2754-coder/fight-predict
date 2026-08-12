@@ -30,6 +30,7 @@ type TelegramContextType = {
   initData: string;
   isTelegram: boolean;
   loading: boolean;
+  refreshUser: () => Promise<void>;
 };
 
 const TelegramContext =
@@ -38,12 +39,11 @@ const TelegramContext =
     initData: "",
     isTelegram: false,
     loading: true,
+    refreshUser: async () => {},
   });
 
 export function useTelegram() {
-  return useContext(
-    TelegramContext,
-  );
+  return useContext(TelegramContext);
 }
 
 export default function TelegramProvider({
@@ -62,6 +62,47 @@ export default function TelegramProvider({
 
   const [loading, setLoading] =
     useState(true);
+
+  async function refreshUser() {
+    if (!initData) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        "/api/auth/telegram",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            initData,
+          }),
+        },
+      );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            "Failed to refresh user",
+        );
+      }
+
+      setUser(result.data.user);
+    } catch (error) {
+      console.error(
+        "Failed to refresh user:",
+        error,
+      );
+    }
+  }
 
   useEffect(() => {
     async function initialize() {
@@ -143,6 +184,7 @@ export default function TelegramProvider({
         initData,
         isTelegram,
         loading,
+        refreshUser,
       }}
     >
       {children}

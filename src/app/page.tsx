@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 
 import { useTelegram } from "@/components/telegram/telegram-provider";
+import WalletScreen from "@/components/wallet/wallet-screen";
+import PredictionHistory from "@/components/predictions/prediction-history";
 
 type Fight = {
   id: string;
@@ -16,9 +18,13 @@ type Fight = {
   fighterBProbability: number;
 
   status: string;
-
   scheduledAt: string | null;
 };
+
+type Tab =
+  | "fight"
+  | "wallet"
+  | "history";
 
 export default function Home() {
   const {
@@ -45,6 +51,9 @@ export default function Home() {
 
   const [message, setMessage] =
     useState<string | null>(null);
+
+  const [activeTab, setActiveTab] =
+    useState<Tab>("fight");
 
   useEffect(() => {
     async function loadFight() {
@@ -86,7 +95,10 @@ export default function Home() {
       return;
     }
 
-    if (amount <= 0) {
+    if (
+      !Number.isInteger(amount) ||
+      amount <= 0
+    ) {
       setMessage(
         "Enter a valid amount.",
       );
@@ -94,7 +106,10 @@ export default function Home() {
       return;
     }
 
-    if (amount > (user?.balance ?? 0)) {
+    if (
+      amount >
+      (user?.balance ?? 0)
+    ) {
       setMessage(
         "You don't have enough points.",
       );
@@ -119,11 +134,8 @@ export default function Home() {
 
             body: JSON.stringify({
               initData,
-
               fightId: fight.id,
-
               selectedFighter,
-
               amount,
             }),
           },
@@ -142,6 +154,8 @@ export default function Home() {
       setMessage(
         `Prediction placed! Potential payout: ${result.data.prediction.potentialWin} points.`,
       );
+
+      setSelectedFighter(null);
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -190,180 +204,318 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-black px-5 py-8 text-white">
+    <main className="min-h-screen bg-black px-5 py-6 pb-28 text-white">
       <div className="mx-auto max-w-md">
-        <header className="mb-6 flex items-center justify-between">
-          <div>
-            <p className="text-sm text-white/50">
-              Welcome
-            </p>
-
-            <h1 className="text-2xl font-black">
-              {user?.firstName}
-            </h1>
-          </div>
-
-          <div className="rounded-2xl bg-white/10 px-4 py-3 text-right">
-            <p className="text-xs text-white/50">
-              Balance
-            </p>
-
-            <p className="font-black">
-              {(user?.balance ?? 0).toLocaleString()}
-            </p>
-          </div>
-        </header>
-
-        {!fight && (
-          <div className="rounded-3xl bg-white/10 p-8 text-center">
-            <div className="text-5xl">
-              🥊
-            </div>
-
-            <h2 className="mt-4 text-xl font-black">
-              No upcoming fight
-            </h2>
-          </div>
+        {activeTab === "fight" && (
+          <FightScreen
+            user={user}
+            fight={fight}
+            selectedFighter={selectedFighter}
+            setSelectedFighter={
+              setSelectedFighter
+            }
+            amount={amount}
+            setAmount={setAmount}
+            predictionLoading={
+              predictionLoading
+            }
+            message={message}
+            makePrediction={
+              makePrediction
+            }
+          />
         )}
 
-        {fight && (
-          <>
-            <section className="rounded-3xl bg-white p-6 text-black">
-              <div className="text-center">
-                <p className="text-xs font-bold uppercase tracking-widest text-black/40">
-                  {fight.status}
-                </p>
+        {activeTab === "wallet" && (
+          <WalletScreen />
+        )}
 
-                <h2 className="mt-3 text-3xl font-black">
-                  {fight.fighterAName}
-                  <span className="mx-2 text-black/30">
-                    VS
-                  </span>
-                  {fight.fighterBName}
-                </h2>
-              </div>
-
-              <div className="mt-7 grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedFighter(
-                      fight.fighterAName,
-                    )
-                  }
-                  className={`rounded-2xl p-5 text-center transition ${
-                    selectedFighter ===
-                    fight.fighterAName
-                      ? "bg-black text-white"
-                      : "bg-black/5"
-                  }`}
-                >
-                  <div className="text-4xl">
-                    🥊
-                  </div>
-
-                  <p className="mt-3 text-xl font-black">
-                    {fight.fighterAName}
-                  </p>
-
-                  <p className="mt-2 text-3xl font-black">
-                    {fight.fighterAProbability}%
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedFighter(
-                      fight.fighterBName,
-                    )
-                  }
-                  className={`rounded-2xl p-5 text-center transition ${
-                    selectedFighter ===
-                    fight.fighterBName
-                      ? "bg-black text-white"
-                      : "bg-black/5"
-                  }`}
-                >
-                  <div className="text-4xl">
-                    🥊
-                  </div>
-
-                  <p className="mt-3 text-xl font-black">
-                    {fight.fighterBName}
-                  </p>
-
-                  <p className="mt-2 text-3xl font-black">
-                    {fight.fighterBProbability}%
-                  </p>
-                </button>
-              </div>
-            </section>
-
-            <section className="mt-5 rounded-3xl bg-white/10 p-6">
-              <h3 className="text-lg font-black">
-                Prediction Amount
-              </h3>
-
-              <div className="mt-4 flex items-center gap-3">
-                {[50, 100, 250, 500].map(
-                  (value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() =>
-                        setAmount(value)
-                      }
-                      className={`rounded-xl px-3 py-2 text-sm font-bold ${
-                        amount === value
-                          ? "bg-white text-black"
-                          : "bg-white/10"
-                      }`}
-                    >
-                      {value}
-                    </button>
-                  ),
-                )}
-              </div>
-
-              <input
-                type="number"
-                min="1"
-                value={amount}
-                onChange={(event) =>
-                  setAmount(
-                    Number(
-                      event.target.value,
-                    ),
-                  )
-                }
-                className="mt-4 w-full rounded-2xl bg-white px-4 py-4 text-xl font-bold text-black outline-none"
-              />
-
-              <button
-                type="button"
-                disabled={
-                  predictionLoading
-                }
-                onClick={
-                  makePrediction
-                }
-                className="mt-4 w-full rounded-2xl bg-white py-4 font-black text-black disabled:opacity-50"
-              >
-                {predictionLoading
-                  ? "Placing..."
-                  : `Predict ${selectedFighter ?? "a fighter"}`}
-              </button>
-
-              {message && (
-                <div className="mt-4 rounded-2xl bg-white/10 p-4 text-sm">
-                  {message}
-                </div>
-              )}
-            </section>
-          </>
+        {activeTab === "history" && (
+          <PredictionHistory />
         )}
       </div>
+
+      <nav className="fixed bottom-0 left-0 right-0 border-t border-white/10 bg-black/95 backdrop-blur">
+        <div className="mx-auto flex max-w-md justify-around px-4 py-3">
+          <NavButton
+            active={
+              activeTab === "fight"
+            }
+            onClick={() =>
+              setActiveTab("fight")
+            }
+            icon="🥊"
+            label="Fight"
+          />
+
+          <NavButton
+            active={
+              activeTab === "wallet"
+            }
+            onClick={() =>
+              setActiveTab("wallet")
+            }
+            icon="💰"
+            label="Wallet"
+          />
+
+          <NavButton
+            active={
+              activeTab === "history"
+            }
+            onClick={() =>
+              setActiveTab("history")
+            }
+            icon="📋"
+            label="History"
+          />
+        </div>
+      </nav>
     </main>
+  );
+}
+
+function FightScreen({
+  user,
+  fight,
+  selectedFighter,
+  setSelectedFighter,
+  amount,
+  setAmount,
+  predictionLoading,
+  message,
+  makePrediction,
+}: {
+  user: any;
+  fight: Fight | null;
+  selectedFighter: string | null;
+  setSelectedFighter: (
+    fighter: string | null,
+  ) => void;
+  amount: number;
+  setAmount: (
+    amount: number,
+  ) => void;
+  predictionLoading: boolean;
+  message: string | null;
+  makePrediction: () => void;
+}) {
+  return (
+    <>
+      <header className="mb-6 flex items-center justify-between">
+        <div>
+          <p className="text-sm text-white/40">
+            Welcome
+          </p>
+
+          <h1 className="text-2xl font-black">
+            {user?.firstName}
+          </h1>
+        </div>
+
+        <div className="rounded-2xl bg-white/10 px-4 py-3 text-right">
+          <p className="text-xs text-white/40">
+            Balance
+          </p>
+
+          <p className="font-black">
+            {(user?.balance ?? 0).toLocaleString()}
+          </p>
+        </div>
+      </header>
+
+      {!fight ? (
+        <div className="rounded-3xl bg-white/10 p-8 text-center">
+          <div className="text-5xl">
+            🥊
+          </div>
+
+          <h2 className="mt-4 text-xl font-black">
+            No upcoming fight
+          </h2>
+        </div>
+      ) : (
+        <>
+          <section className="rounded-3xl bg-white p-6 text-black">
+            <div className="text-center">
+              <p className="text-xs font-bold uppercase tracking-widest text-black/40">
+                {fight.status}
+              </p>
+
+              <h2 className="mt-3 text-3xl font-black">
+                {fight.fighterAName}
+
+                <span className="mx-2 text-black/30">
+                  VS
+                </span>
+
+                {fight.fighterBName}
+              </h2>
+            </div>
+
+            <div className="mt-7 grid grid-cols-2 gap-3">
+              <FighterButton
+                name={fight.fighterAName}
+                probability={
+                  fight.fighterAProbability
+                }
+                selected={
+                  selectedFighter ===
+                  fight.fighterAName
+                }
+                onClick={() =>
+                  setSelectedFighter(
+                    fight.fighterAName,
+                  )
+                }
+              />
+
+              <FighterButton
+                name={fight.fighterBName}
+                probability={
+                  fight.fighterBProbability
+                }
+                selected={
+                  selectedFighter ===
+                  fight.fighterBName
+                }
+                onClick={() =>
+                  setSelectedFighter(
+                    fight.fighterBName,
+                  )
+                }
+              />
+            </div>
+          </section>
+
+          <section className="mt-5 rounded-3xl bg-white/10 p-6">
+            <h3 className="text-lg font-black">
+              Prediction Amount
+            </h3>
+
+            <div className="mt-4 grid grid-cols-4 gap-2">
+              {[50, 100, 250, 500].map(
+                (value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() =>
+                      setAmount(value)
+                    }
+                    className={`rounded-xl py-3 text-sm font-bold ${
+                      amount === value
+                        ? "bg-white text-black"
+                        : "bg-white/10"
+                    }`}
+                  >
+                    {value}
+                  </button>
+                ),
+              )}
+            </div>
+
+            <input
+              type="number"
+              min="1"
+              value={amount}
+              onChange={(event) =>
+                setAmount(
+                  Number(
+                    event.target.value,
+                  ),
+                )
+              }
+              className="mt-4 w-full rounded-2xl bg-white px-4 py-4 text-xl font-bold text-black outline-none"
+            />
+
+            <button
+              type="button"
+              disabled={predictionLoading}
+              onClick={makePrediction}
+              className="mt-4 w-full rounded-2xl bg-white py-4 font-black text-black disabled:opacity-50"
+            >
+              {predictionLoading
+                ? "Placing..."
+                : `Predict ${
+                    selectedFighter ??
+                    "a fighter"
+                  }`}
+            </button>
+
+            {message && (
+              <div className="mt-4 rounded-2xl bg-white/10 p-4 text-sm">
+                {message}
+              </div>
+            )}
+          </section>
+        </>
+      )}
+    </>
+  );
+}
+
+function FighterButton({
+  name,
+  probability,
+  selected,
+  onClick,
+}: {
+  name: string;
+  probability: number;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-2xl p-5 text-center transition ${
+        selected
+          ? "bg-black text-white"
+          : "bg-black/5"
+      }`}
+    >
+      <div className="text-4xl">
+        🥊
+      </div>
+
+      <p className="mt-3 text-xl font-black">
+        {name}
+      </p>
+
+      <p className="mt-2 text-3xl font-black">
+        {probability}%
+      </p>
+    </button>
+  );
+}
+
+function NavButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: string;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex min-w-20 flex-col items-center gap-1 rounded-xl px-4 py-2 text-xs font-bold ${
+        active
+          ? "bg-white text-black"
+          : "text-white/50"
+      }`}
+    >
+      <span className="text-xl">
+        {icon}
+      </span>
+
+      {label}
+    </button>
   );
 }
