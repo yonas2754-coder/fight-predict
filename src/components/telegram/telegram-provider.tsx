@@ -30,7 +30,14 @@ type TelegramContextType = {
   initData: string;
   isTelegram: boolean;
   loading: boolean;
+
   refreshUser: () => Promise<void>;
+
+  showBackButton: (
+    callback: () => void,
+  ) => void;
+
+  hideBackButton: () => void;
 };
 
 const TelegramContext =
@@ -39,11 +46,21 @@ const TelegramContext =
     initData: "",
     isTelegram: false,
     loading: true,
-    refreshUser: async () => {},
+
+    refreshUser:
+      async () => {},
+
+    showBackButton:
+      () => {},
+
+    hideBackButton:
+      () => {},
   });
 
 export function useTelegram() {
-  return useContext(TelegramContext);
+  return useContext(
+    TelegramContext,
+  );
 }
 
 export default function TelegramProvider({
@@ -69,21 +86,22 @@ export default function TelegramProvider({
     }
 
     try {
-      const response = await fetch(
-        "/api/auth/telegram",
-        {
-          method: "POST",
+      const response =
+        await fetch(
+          "/api/auth/telegram",
+          {
+            method: "POST",
 
-          headers: {
-            "Content-Type":
-              "application/json",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              initData,
+            }),
           },
-
-          body: JSON.stringify({
-            initData,
-          }),
-        },
-      );
+        );
 
       const result =
         await response.json();
@@ -95,13 +113,42 @@ export default function TelegramProvider({
         );
       }
 
-      setUser(result.data.user);
+      setUser(
+        result.data.user,
+      );
     } catch (error) {
       console.error(
         "Failed to refresh user:",
         error,
       );
     }
+  }
+
+  function showBackButton(
+    callback: () => void,
+  ) {
+    const webApp =
+      getTelegramWebApp();
+
+    if (!webApp) {
+      return;
+    }
+
+    webApp.BackButton.show();
+    webApp.BackButton.onClick(
+      callback,
+    );
+  }
+
+  function hideBackButton() {
+    const webApp =
+      getTelegramWebApp();
+
+    if (!webApp) {
+      return;
+    }
+
+    webApp.BackButton.hide();
   }
 
   useEffect(() => {
@@ -123,6 +170,31 @@ export default function TelegramProvider({
         webApp.initData || "";
 
       setInitData(data);
+
+      document.documentElement.style.setProperty(
+        "--tg-bg-color",
+        webApp.themeParams.bg_color ||
+          "#000000",
+      );
+
+      document.documentElement.style.setProperty(
+        "--tg-text-color",
+        webApp.themeParams.text_color ||
+          "#ffffff",
+      );
+
+      document.documentElement.style.setProperty(
+        "--tg-button-color",
+        webApp.themeParams.button_color ||
+          "#ffffff",
+      );
+
+      document.documentElement.style.setProperty(
+        "--tg-button-text-color",
+        webApp.themeParams
+          .button_text_color ||
+          "#000000",
+      );
 
       if (!data) {
         console.error(
@@ -185,6 +257,8 @@ export default function TelegramProvider({
         isTelegram,
         loading,
         refreshUser,
+        showBackButton,
+        hideBackButton,
       }}
     >
       {children}

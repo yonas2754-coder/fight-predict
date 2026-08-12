@@ -25,18 +25,27 @@ model User {
 }
 
 model Fight {
-  id                  String       @id @default(cuid())
-  title               String
-  description         String?
-  fighterAName        String
-  fighterBName        String
+  id String @id @default(cuid())
+
+  title       String
+  description String?
+
+  fighterAName String
+  fighterBName String
+
   fighterAProbability Int
   fighterBProbability Int
-  status              FightStatus  @default(UPCOMING)
-  scheduledAt         DateTime?
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
-  predictions         Prediction[]
+
+  winner String?
+
+  status FightStatus @default(UPCOMING)
+
+  scheduledAt DateTime?
+
+  predictions Prediction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([scheduledAt])

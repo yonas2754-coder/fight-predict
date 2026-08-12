@@ -1,14 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { useTelegram } from "@/components/telegram/telegram-provider";
-import WalletScreen from "@/components/wallet/wallet-screen";
-import PredictionHistory from "@/components/predictions/prediction-history";
+import { getTelegramWebApp } from "@/lib/telegram";
 
 type Fight = {
   id: string;
+
   title: string;
+
   description: string | null;
 
   fighterAName: string;
@@ -17,21 +22,35 @@ type Fight = {
   fighterAProbability: number;
   fighterBProbability: number;
 
-  status: string;
+  status:
+    | "UPCOMING"
+    | "LIVE"
+    | "FINISHED"
+    | "CANCELLED";
+
   scheduledAt: string | null;
+
+  _count?: {
+    predictions: number;
+  };
 };
 
-type Tab =
-  | "fight"
-  | "wallet"
-  | "history";
+type SelectedFighter = "A" | "B" | null;
 
-export default function Home() {
+const AMOUNTS = [
+  50,
+  100,
+  200,
+  500,
+];
+
+export default function HomePage() {
   const {
     user,
     initData,
-    isTelegram,
     loading: telegramLoading,
+    isTelegram,
+    refreshUser,
   } = useTelegram();
 
   const [fight, setFight] =
@@ -41,86 +60,339 @@ export default function Home() {
     useState(true);
 
   const [selectedFighter, setSelectedFighter] =
-    useState<string | null>(null);
+    useState<SelectedFighter>(null);
 
   const [amount, setAmount] =
     useState(100);
 
-  const [predictionLoading, setPredictionLoading] =
+  const [customAmount, setCustomAmount] =
+    useState("");
+
+  const [showConfirmation, setShowConfirmation] =
     useState(false);
 
-  const [message, setMessage] =
-    useState<string | null>(null);
+  const [placingPrediction, setPlacingPrediction] =
+    useState(false);
 
-  const [activeTab, setActiveTab] =
-    useState<Tab>("fight");
+  const [error, setError] =
+    useState("");
 
+  const [success, setSuccess] =
+    useState("");
+
+  /*
+   * Load the current fight
+   */
   useEffect(() => {
-    async function loadFight() {
-      try {
-        const response =
-          await fetch("/api/fights");
-
-        const result =
-          await response.json();
-
-        if (result.success) {
-          setFight(
-            result.data[0] ?? null,
-          );
-        }
-      } catch (error) {
-        console.error(
-          "Failed to load fight:",
-          error,
-        );
-      } finally {
-        setLoadingFight(false);
-      }
+    if (telegramLoading) {
+      return;
     }
 
     loadFight();
-  }, []);
+  }, [telegramLoading]);
 
-  async function makePrediction() {
+  async function loadFight() {
+    try {
+      setLoadingFight(true);
+      setError("");
+
+      const response =
+        await fetch("/api/fights", {
+          cache: "no-store",
+        });
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            "Failed to load fights",
+        );
+      }
+
+      const fights: Fight[] =
+        result.data ?? [];
+
+      /*
+       * Prefer LIVE fight.
+       * Otherwise use the first UPCOMING fight.
+       */
+      const activeFight =
+        fights.find(
+          (item) =>
+            item.status === "LIVE",
+        ) ??
+        fights.find(
+          (item) =>
+            item.status ===
+            "UPCOMING",
+        ) ??
+        null;
+
+      setFight(activeFight);
+    } catch (error) {
+      console.error(
+        "Failed to load fight:",
+        error,
+      );
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load fight",
+      );
+    } finally {
+      setLoadingFight(false);
+    }
+  }
+
+  /*
+   * Current selected fighter name
+   */
+  const selectedFighterName =
+    useMemo(() => {
+      if (!fight) {
+        return "";
+      }
+
+      if (
+        selectedFighter === "A"
+      ) {
+        return fight.fighterAName;
+      }
+
+      if (
+        selectedFighter === "B"
+      ) {
+        return fight.fighterBName;
+      }
+
+      return "";
+    }, [
+      fight,
+      selectedFighter,
+    ]);
+
+  /*
+   * Selected fighter probability
+   */
+  const selectedProbability =
+    useMemo(() => {
+      if (!fight) {
+        return 0;
+      }
+
+      if (
+        selectedFighter === "A"
+      ) {
+        return fight.fighterAProbability;
+      }
+
+      if (
+        selectedFighter === "B"
+      ) {
+        return fight.fighterBProbability;
+      }
+
+      return 0;
+    }, [
+      fight,
+      selectedFighter,
+    ]);
+
+  /*
+   * Potential win.
+   *
+   * Example:
+   *
+   * Sedo = 35%
+   * Amount = 100
+   *
+   * 100 / 0.35 = 285
+   *
+   * This is only a frontend estimate.
+   * The backend must calculate the real
+   * payout again.
+   */
+  const potentialWin =
+    useMemo(() => {
+      if (
+        amount <= 0 ||
+        selectedProbability <= 0
+      ) {
+        return 0;
+      }
+
+      return Math.floor(
+        amount /
+          (selectedProbability / 100),
+      );
+    }, [
+      amount,
+      selectedProbability,
+    ]);
+
+  /*
+   * Choose fighter
+   */
+  function selectFighter(
+    fighter: SelectedFighter,
+  ) {
     if (!fight) {
       return;
     }
 
+    if (fight.status !== "UPCOMING") {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+
+    setSelectedFighter(fighter);
+
+    const webApp =
+      getTelegramWebApp();
+
+    webApp?.HapticFeedback.impactOccurred(
+      "light",
+    );
+  }
+
+  /*
+   * Choose predefined amount
+   */
+  function selectAmount(
+    value: number,
+  ) {
+    if (
+      value <= 0 ||
+      !user ||
+      value > user.balance
+    ) {
+      return;
+    }
+
+    setAmount(value);
+    setCustomAmount("");
+
+    const webApp =
+      getTelegramWebApp();
+
+    webApp?.HapticFeedback.impactOccurred(
+      "light",
+    );
+  }
+
+  /*
+   * Custom amount
+   */
+  function handleCustomAmount(
+    value: string,
+  ) {
+    setCustomAmount(value);
+
+    const numericValue =
+      Number(value);
+
+    if (
+      Number.isFinite(
+        numericValue,
+      ) &&
+      numericValue > 0
+    ) {
+      setAmount(
+        Math.floor(numericValue),
+      );
+    }
+  }
+
+  /*
+   * Open confirmation
+   */
+  function openConfirmation() {
+    setError("");
+    setSuccess("");
+
+    if (!user) {
+      setError(
+        "You are not authenticated.",
+      );
+
+      return;
+    }
+
+    if (!fight) {
+      setError(
+        "No fight is available.",
+      );
+
+      return;
+    }
+
+    if (
+      fight.status !== "UPCOMING"
+    ) {
+      setError(
+        "Predictions are closed.",
+      );
+
+      return;
+    }
+
     if (!selectedFighter) {
-      setMessage(
-        "Select a fighter first.",
+      setError(
+        "Please select a fighter.",
       );
 
       return;
     }
 
     if (
-      !Number.isInteger(amount) ||
-      amount <= 0
+      amount <= 0 ||
+      !Number.isInteger(amount)
     ) {
-      setMessage(
-        "Enter a valid amount.",
+      setError(
+        "Enter a valid prediction amount.",
       );
 
       return;
     }
 
-    if (
-      amount >
-      (user?.balance ?? 0)
-    ) {
-      setMessage(
-        "You don't have enough points.",
+    if (amount > user.balance) {
+      setError(
+        "Insufficient balance.",
       );
 
       return;
     }
 
-    setPredictionLoading(true);
-    setMessage(null);
+    setShowConfirmation(true);
+  }
+
+  /*
+   * Submit prediction
+   */
+  async function placePrediction() {
+    if (!user || !fight) {
+      return;
+    }
+
+    if (!selectedFighter) {
+      return;
+    }
 
     try {
+      setPlacingPrediction(true);
+      setError("");
+      setSuccess("");
+
+      const fighterName =
+        selectedFighter === "A"
+          ? fight.fighterAName
+          : fight.fighterBName;
+
       const response =
         await fetch(
           "/api/predictions",
@@ -135,7 +407,8 @@ export default function Home() {
             body: JSON.stringify({
               initData,
               fightId: fight.id,
-              selectedFighter,
+              selectedFighter:
+                fighterName,
               amount,
             }),
           },
@@ -147,38 +420,78 @@ export default function Home() {
       if (!response.ok) {
         throw new Error(
           result.error ||
-            "Prediction failed",
+            "Failed to place prediction",
         );
       }
 
-      setMessage(
-        `Prediction placed! Potential payout: ${result.data.prediction.potentialWin} points.`,
+      /*
+       * Success haptic
+       */
+      const webApp =
+        getTelegramWebApp();
+
+      webApp?.HapticFeedback.notificationOccurred(
+        "success",
       );
 
+      setShowConfirmation(false);
+
       setSelectedFighter(null);
+
+      setCustomAmount("");
+
+      setSuccess(
+        `Prediction placed on ${fighterName}!`,
+      );
+
+      /*
+       * Refresh user balance
+       */
+      await refreshUser();
+
+      /*
+       * Reload fight information
+       */
+      await loadFight();
     } catch (error) {
-      setMessage(
+      console.error(
+        "Prediction error:",
+        error,
+      );
+
+      const webApp =
+        getTelegramWebApp();
+
+      webApp?.HapticFeedback.notificationOccurred(
+        "error",
+      );
+
+      setError(
         error instanceof Error
           ? error.message
-          : "Prediction failed",
+          : "Failed to place prediction",
       );
     } finally {
-      setPredictionLoading(false);
+      setPlacingPrediction(false);
     }
   }
 
+  /*
+   * Telegram loading
+   */
   if (telegramLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-black text-white">
-        <p>Connecting...</p>
-      </main>
+      <LoadingScreen />
     );
   }
 
+  /*
+   * Browser access
+   */
   if (!isTelegram) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black px-6 text-white">
-        <div className="text-center">
+        <div className="w-full max-w-sm text-center">
           <div className="text-6xl">
             📱
           </div>
@@ -188,334 +501,739 @@ export default function Home() {
           </h1>
 
           <p className="mt-3 text-white/50">
-            Open this Mini App from Telegram.
+            Please open this application
+            inside Telegram.
           </p>
         </div>
       </main>
     );
   }
 
-  if (loadingFight) {
+  /*
+   * Authentication
+   */
+  if (!user) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-black text-white">
-        <p>Loading fight...</p>
+      <main className="flex min-h-screen items-center justify-center bg-black px-6 text-white">
+        <div className="text-center">
+          <div className="text-5xl">
+            🔐
+          </div>
+
+          <h1 className="mt-4 text-2xl font-black">
+            Authentication Required
+          </h1>
+
+          <p className="mt-2 text-sm text-white/50">
+            Please reopen the Mini App
+            from Telegram.
+          </p>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-black px-5 py-6 pb-28 text-white">
-      <div className="mx-auto max-w-md">
-        {activeTab === "fight" && (
-          <FightScreen
-            user={user}
-            fight={fight}
-            selectedFighter={selectedFighter}
-            setSelectedFighter={
-              setSelectedFighter
-            }
-            amount={amount}
-            setAmount={setAmount}
-            predictionLoading={
-              predictionLoading
-            }
-            message={message}
-            makePrediction={
-              makePrediction
-            }
-          />
+    <main className="min-h-screen bg-black pb-28 text-white">
+      <div className="mx-auto w-full max-w-md px-5 py-5">
+        {/* HEADER */}
+
+        <header className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-white/40">
+              Welcome
+            </p>
+
+            <h1 className="text-2xl font-black">
+              {user.firstName}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {user.role ===
+              "ADMIN" && (
+              <a
+                href="/admin"
+                className="rounded-xl bg-white/10 px-3 py-2 text-xs font-bold"
+              >
+                ⚙️
+              </a>
+            )}
+
+            {user.photoUrl ? (
+              <img
+                src={user.photoUrl}
+                alt={user.firstName}
+                className="h-11 w-11 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 font-black">
+                {user.firstName
+                  .charAt(0)
+                  .toUpperCase()}
+              </div>
+            )}
+          </div>
+        </header>
+
+        {/* BALANCE */}
+
+        <section className="mt-5 rounded-3xl bg-white p-5 text-black">
+          <p className="text-sm font-medium text-black/50">
+            Your Balance
+          </p>
+
+          <div className="mt-2 flex items-end justify-between">
+            <div>
+              <span className="text-4xl font-black">
+                {user.balance.toLocaleString()}
+              </span>
+
+              <span className="ml-2 text-sm font-bold text-black/40">
+                points
+              </span>
+            </div>
+
+            <a
+              href="/wallet"
+              className="rounded-xl bg-black px-4 py-2 text-sm font-bold text-white"
+            >
+              Wallet
+            </a>
+          </div>
+        </section>
+
+        {/* ERROR */}
+
+        {error && (
+          <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+            {error}
+          </div>
         )}
 
-        {activeTab === "wallet" && (
-          <WalletScreen />
+        {/* SUCCESS */}
+
+        {success && (
+          <div className="mt-4 rounded-2xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">
+            ✅ {success}
+          </div>
         )}
 
-        {activeTab === "history" && (
-          <PredictionHistory />
-        )}
+        {/* FIGHT */}
+
+        <section className="mt-7">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-white/40">
+                Prediction
+              </p>
+
+              <h2 className="text-2xl font-black">
+                Current Fight
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={loadFight}
+              disabled={loadingFight}
+              className="rounded-xl bg-white/10 px-3 py-2 text-xs font-bold"
+            >
+              {loadingFight
+                ? "..."
+                : "Refresh"}
+            </button>
+          </div>
+
+          {loadingFight ? (
+            <FightSkeleton />
+          ) : !fight ? (
+            <EmptyFight />
+          ) : (
+            <div className="overflow-hidden rounded-3xl bg-white/10">
+              {/* FIGHT HEADER */}
+
+              <div className="p-5">
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-black ${
+                      fight.status ===
+                      "LIVE"
+                        ? "bg-red-500/20 text-red-300"
+                        : "bg-yellow-500/20 text-yellow-300"
+                    }`}
+                  >
+                    {fight.status ===
+                    "LIVE"
+                      ? "🔴 LIVE"
+                      : "UPCOMING"}
+                  </span>
+
+                  {fight.scheduledAt && (
+                    <span className="text-xs text-white/40">
+                      {formatDate(
+                        fight.scheduledAt,
+                      )}
+                    </span>
+                  )}
+                </div>
+
+                <h3 className="mt-5 text-center text-2xl font-black">
+                  {fight.title}
+                </h3>
+
+                {fight.description && (
+                  <p className="mt-2 text-center text-sm text-white/40">
+                    {fight.description}
+                  </p>
+                )}
+
+                {/* FIGHTERS */}
+
+                <div className="mt-6 grid grid-cols-2 gap-3">
+                  <FighterCard
+                    name={
+                      fight.fighterAName
+                    }
+                    probability={
+                      fight.fighterAProbability
+                    }
+                    selected={
+                      selectedFighter ===
+                      "A"
+                    }
+                    disabled={
+                      fight.status !==
+                      "UPCOMING"
+                    }
+                    onClick={() =>
+                      selectFighter("A")
+                    }
+                  />
+
+                  <FighterCard
+                    name={
+                      fight.fighterBName
+                    }
+                    probability={
+                      fight.fighterBProbability
+                    }
+                    selected={
+                      selectedFighter ===
+                      "B"
+                    }
+                    disabled={
+                      fight.status !==
+                      "UPCOMING"
+                    }
+                    onClick={() =>
+                      selectFighter("B")
+                    }
+                  />
+                </div>
+
+                {/* PROBABILITY */}
+
+                <ProbabilityBar
+                  fighterA={
+                    fight.fighterAName
+                  }
+                  fighterB={
+                    fight.fighterBName
+                  }
+                  probabilityA={
+                    fight.fighterAProbability
+                  }
+                  probabilityB={
+                    fight.fighterBProbability
+                  }
+                />
+              </div>
+
+              {/* PREDICTION AREA */}
+
+              {fight.status ===
+                "UPCOMING" && (
+                <div className="border-t border-white/10 p-5">
+                  <p className="text-sm font-bold text-white/50">
+                    Prediction amount
+                  </p>
+
+                  <div className="mt-3 grid grid-cols-4 gap-2">
+                    {AMOUNTS.map(
+                      (value) => {
+                        const disabled =
+                          value >
+                          user.balance;
+
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            disabled={
+                              disabled
+                            }
+                            onClick={() =>
+                              selectAmount(
+                                value,
+                              )
+                            }
+                            className={`rounded-xl py-3 text-sm font-black ${
+                              amount ===
+                                value &&
+                              !customAmount
+                                ? "bg-white text-black"
+                                : "bg-white/10 text-white"
+                            } disabled:cursor-not-allowed disabled:opacity-30`}
+                          >
+                            {value}
+                          </button>
+                        );
+                      },
+                    )}
+                  </div>
+
+                  {/* CUSTOM AMOUNT */}
+
+                  <input
+                    type="number"
+                    min="1"
+                    max={user.balance}
+                    value={
+                      customAmount
+                    }
+                    onChange={(event) =>
+                      handleCustomAmount(
+                        event.target
+                          .value,
+                      )
+                    }
+                    placeholder="Custom amount"
+                    className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none placeholder:text-white/30"
+                  />
+
+                  {/* POTENTIAL WIN */}
+
+                  {selectedFighter && (
+                    <div className="mt-4 rounded-2xl bg-white/5 p-4">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-white/40">
+                          Selected
+                        </span>
+
+                        <span className="font-black">
+                          {
+                            selectedFighterName
+                          }
+                        </span>
+                      </div>
+
+                      <div className="mt-2 flex justify-between">
+                        <span className="text-sm text-white/40">
+                          Probability
+                        </span>
+
+                        <span className="font-black">
+                          {
+                            selectedProbability
+                          }
+                          %
+                        </span>
+                      </div>
+
+                      <div className="mt-2 flex justify-between">
+                        <span className="text-sm text-white/40">
+                          Potential return
+                        </span>
+
+                        <span className="font-black text-green-300">
+                          {potentialWin.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* PREDICT BUTTON */}
+
+                  <button
+                    type="button"
+                    onClick={
+                      openConfirmation
+                    }
+                    disabled={
+                      !selectedFighter ||
+                      amount <= 0 ||
+                      amount >
+                        user.balance
+                    }
+                    className="mt-4 w-full rounded-2xl bg-white py-4 font-black text-black disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    {selectedFighter
+                      ? `Predict ${selectedFighterName}`
+                      : "Select a Fighter"}
+                  </button>
+                </div>
+              )}
+
+              {fight.status ===
+                "LIVE" && (
+                <div className="border-t border-white/10 p-5 text-center">
+                  <div className="text-4xl">
+                    🔴
+                  </div>
+
+                  <p className="mt-2 font-black">
+                    Fight is Live
+                  </p>
+
+                  <p className="mt-1 text-sm text-white/40">
+                    Predictions are closed.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* HISTORY LINK */}
+
+        <a
+          href="/history"
+          className="mt-5 flex items-center justify-between rounded-2xl bg-white/10 p-5"
+        >
+          <div>
+            <p className="font-black">
+              Prediction History
+            </p>
+
+            <p className="mt-1 text-sm text-white/40">
+              View your previous predictions
+            </p>
+          </div>
+
+          <span className="text-xl">
+            →
+          </span>
+        </a>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 border-t border-white/10 bg-black/95 backdrop-blur">
-        <div className="mx-auto flex max-w-md justify-around px-4 py-3">
-          <NavButton
-            active={
-              activeTab === "fight"
-            }
-            onClick={() =>
-              setActiveTab("fight")
-            }
-            icon="🥊"
-            label="Fight"
-          />
+      {/* CONFIRMATION MODAL */}
 
-          <NavButton
-            active={
-              activeTab === "wallet"
-            }
-            onClick={() =>
-              setActiveTab("wallet")
-            }
-            icon="💰"
-            label="Wallet"
-          />
-
-          <NavButton
-            active={
-              activeTab === "history"
-            }
-            onClick={() =>
-              setActiveTab("history")
-            }
-            icon="📋"
-            label="History"
-          />
-        </div>
-      </nav>
+      {showConfirmation && (
+        <ConfirmationModal
+          fighter={
+            selectedFighterName
+          }
+          amount={amount}
+          potentialWin={
+            potentialWin
+          }
+          onCancel={() =>
+            setShowConfirmation(
+              false,
+            )
+          }
+          onConfirm={
+            placePrediction
+          }
+          loading={
+            placingPrediction
+          }
+        />
+      )}
     </main>
   );
 }
 
-function FightScreen({
-  user,
-  fight,
-  selectedFighter,
-  setSelectedFighter,
-  amount,
-  setAmount,
-  predictionLoading,
-  message,
-  makePrediction,
-}: {
-  user: any;
-  fight: Fight | null;
-  selectedFighter: string | null;
-  setSelectedFighter: (
-    fighter: string | null,
-  ) => void;
-  amount: number;
-  setAmount: (
-    amount: number,
-  ) => void;
-  predictionLoading: boolean;
-  message: string | null;
-  makePrediction: () => void;
-}) {
-  return (
-    <>
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <p className="text-sm text-white/40">
-            Welcome
-          </p>
+/*
+ * Fighter Card
+ */
 
-          <h1 className="text-2xl font-black">
-            {user?.firstName}
-          </h1>
-        </div>
-
-        <div className="rounded-2xl bg-white/10 px-4 py-3 text-right">
-          <p className="text-xs text-white/40">
-            Balance
-          </p>
-
-          <p className="font-black">
-            {(user?.balance ?? 0).toLocaleString()}
-          </p>
-        </div>
-      </header>
-
-      {!fight ? (
-        <div className="rounded-3xl bg-white/10 p-8 text-center">
-          <div className="text-5xl">
-            🥊
-          </div>
-
-          <h2 className="mt-4 text-xl font-black">
-            No upcoming fight
-          </h2>
-        </div>
-      ) : (
-        <>
-          <section className="rounded-3xl bg-white p-6 text-black">
-            <div className="text-center">
-              <p className="text-xs font-bold uppercase tracking-widest text-black/40">
-                {fight.status}
-              </p>
-
-              <h2 className="mt-3 text-3xl font-black">
-                {fight.fighterAName}
-
-                <span className="mx-2 text-black/30">
-                  VS
-                </span>
-
-                {fight.fighterBName}
-              </h2>
-            </div>
-
-            <div className="mt-7 grid grid-cols-2 gap-3">
-              <FighterButton
-                name={fight.fighterAName}
-                probability={
-                  fight.fighterAProbability
-                }
-                selected={
-                  selectedFighter ===
-                  fight.fighterAName
-                }
-                onClick={() =>
-                  setSelectedFighter(
-                    fight.fighterAName,
-                  )
-                }
-              />
-
-              <FighterButton
-                name={fight.fighterBName}
-                probability={
-                  fight.fighterBProbability
-                }
-                selected={
-                  selectedFighter ===
-                  fight.fighterBName
-                }
-                onClick={() =>
-                  setSelectedFighter(
-                    fight.fighterBName,
-                  )
-                }
-              />
-            </div>
-          </section>
-
-          <section className="mt-5 rounded-3xl bg-white/10 p-6">
-            <h3 className="text-lg font-black">
-              Prediction Amount
-            </h3>
-
-            <div className="mt-4 grid grid-cols-4 gap-2">
-              {[50, 100, 250, 500].map(
-                (value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() =>
-                      setAmount(value)
-                    }
-                    className={`rounded-xl py-3 text-sm font-bold ${
-                      amount === value
-                        ? "bg-white text-black"
-                        : "bg-white/10"
-                    }`}
-                  >
-                    {value}
-                  </button>
-                ),
-              )}
-            </div>
-
-            <input
-              type="number"
-              min="1"
-              value={amount}
-              onChange={(event) =>
-                setAmount(
-                  Number(
-                    event.target.value,
-                  ),
-                )
-              }
-              className="mt-4 w-full rounded-2xl bg-white px-4 py-4 text-xl font-bold text-black outline-none"
-            />
-
-            <button
-              type="button"
-              disabled={predictionLoading}
-              onClick={makePrediction}
-              className="mt-4 w-full rounded-2xl bg-white py-4 font-black text-black disabled:opacity-50"
-            >
-              {predictionLoading
-                ? "Placing..."
-                : `Predict ${
-                    selectedFighter ??
-                    "a fighter"
-                  }`}
-            </button>
-
-            {message && (
-              <div className="mt-4 rounded-2xl bg-white/10 p-4 text-sm">
-                {message}
-              </div>
-            )}
-          </section>
-        </>
-      )}
-    </>
-  );
-}
-
-function FighterButton({
+function FighterCard({
   name,
   probability,
   selected,
+  disabled,
   onClick,
 }: {
   name: string;
   probability: number;
   selected: boolean;
+  disabled: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
-      className={`rounded-2xl p-5 text-center transition ${
+      className={`rounded-2xl p-4 text-center transition ${
         selected
-          ? "bg-black text-white"
-          : "bg-black/5"
-      }`}
+          ? "bg-white text-black"
+          : "bg-white/5 text-white"
+      } disabled:cursor-not-allowed disabled:opacity-50`}
     >
-      <div className="text-4xl">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/10 text-2xl">
         🥊
       </div>
 
-      <p className="mt-3 text-xl font-black">
+      <p className="mt-3 font-black">
         {name}
       </p>
 
-      <p className="mt-2 text-3xl font-black">
+      <p
+        className={`mt-1 text-2xl font-black ${
+          selected
+            ? "text-black"
+            : "text-white"
+        }`}
+      >
         {probability}%
+      </p>
+
+      <p
+        className={`mt-1 text-xs ${
+          selected
+            ? "text-black/50"
+            : "text-white/40"
+        }`}
+      >
+        {selected
+          ? "Selected"
+          : "Select"}
       </p>
     </button>
   );
 }
 
-function NavButton({
-  active,
-  onClick,
-  icon,
-  label,
+/*
+ * Probability Bar
+ */
+
+function ProbabilityBar({
+  fighterA,
+  fighterB,
+  probabilityA,
+  probabilityB,
 }: {
-  active: boolean;
-  onClick: () => void;
-  icon: string;
-  label: string;
+  fighterA: string;
+  fighterB: string;
+  probabilityA: number;
+  probabilityB: number;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex min-w-20 flex-col items-center gap-1 rounded-xl px-4 py-2 text-xs font-bold ${
-        active
-          ? "bg-white text-black"
-          : "text-white/50"
-      }`}
-    >
-      <span className="text-xl">
-        {icon}
-      </span>
+    <div className="mt-6">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-bold">
+          {fighterA}
+        </span>
 
-      {label}
-    </button>
+        <span className="text-white/40">
+          VS
+        </span>
+
+        <span className="font-bold">
+          {fighterB}
+        </span>
+      </div>
+
+      <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-white/10">
+        <div
+          className="bg-white"
+          style={{
+            width: `${probabilityA}%`,
+          }}
+        />
+
+        <div
+          className="bg-white/30"
+          style={{
+            width: `${probabilityB}%`,
+          }}
+        />
+      </div>
+    </div>
   );
+}
+
+/*
+ * Confirmation Modal
+ */
+
+function ConfirmationModal({
+  fighter,
+  amount,
+  potentialWin,
+  onCancel,
+  onConfirm,
+  loading,
+}: {
+  fighter: string;
+  amount: number;
+  potentialWin: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-5 backdrop-blur-sm">
+      <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-black">
+        <div className="text-center">
+          <div className="text-5xl">
+            🥊
+          </div>
+
+          <h2 className="mt-4 text-2xl font-black">
+            Confirm Prediction
+          </h2>
+
+          <p className="mt-2 text-black/40">
+            You are predicting
+          </p>
+
+          <p className="mt-1 text-2xl font-black">
+            {fighter}
+          </p>
+        </div>
+
+        <div className="mt-5 rounded-2xl bg-black/5 p-4">
+          <div className="flex justify-between">
+            <span className="text-sm text-black/40">
+              Amount
+            </span>
+
+            <span className="font-black">
+              {amount.toLocaleString()}
+            </span>
+          </div>
+
+          <div className="mt-2 flex justify-between">
+            <span className="text-sm text-black/40">
+              Potential return
+            </span>
+
+            <span className="font-black text-green-600">
+              {potentialWin.toLocaleString()}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            disabled={loading}
+            onClick={onCancel}
+            className="rounded-2xl bg-black/5 py-4 font-bold disabled:opacity-50"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            disabled={loading}
+            onClick={onConfirm}
+            className="rounded-2xl bg-black py-4 font-black text-white disabled:opacity-50"
+          >
+            {loading
+              ? "Placing..."
+              : "Confirm"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/*
+ * Loading Screen
+ */
+
+function LoadingScreen() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-black text-white">
+      <div className="text-center">
+        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white" />
+
+        <p className="mt-4 text-sm text-white/50">
+          Loading Fight Predict...
+        </p>
+      </div>
+    </main>
+  );
+}
+
+/*
+ * Fight Skeleton
+ */
+
+function FightSkeleton() {
+  return (
+    <div className="animate-pulse rounded-3xl bg-white/10 p-5">
+      <div className="h-5 w-20 rounded bg-white/10" />
+
+      <div className="mx-auto mt-6 h-7 w-48 rounded bg-white/10" />
+
+      <div className="mt-6 grid grid-cols-2 gap-3">
+        <div className="h-40 rounded-2xl bg-white/5" />
+
+        <div className="h-40 rounded-2xl bg-white/5" />
+      </div>
+
+      <div className="mt-6 h-3 rounded-full bg-white/5" />
+    </div>
+  );
+}
+
+/*
+ * Empty Fight
+ */
+
+function EmptyFight() {
+  return (
+    <div className="rounded-3xl bg-white/10 p-8 text-center">
+      <div className="text-6xl">
+        🥊
+      </div>
+
+      <h2 className="mt-4 text-2xl font-black">
+        No Fight Available
+      </h2>
+
+      <p className="mt-2 text-sm text-white/40">
+        Check back later for the next
+        fight.
+      </p>
+
+      <button
+        type="button"
+        onClick={() =>
+          window.location.reload()
+        }
+        className="mt-5 rounded-xl bg-white px-5 py-3 font-black text-black"
+      >
+        Refresh
+      </button>
+    </div>
+  );
+}
+
+/*
+ * Date formatter
+ */
+
+function formatDate(
+  value: string,
+) {
+  try {
+    return new Date(
+      value,
+    ).toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
 }

@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 
-import TelegramProvider from "@/components/telegram/telegram-provider";
-
 import "./globals.css";
+
+import TelegramProvider from "@/components/telegram/telegram-provider";
 
 export const metadata: Metadata = {
   title: "Fight Predict",
-  description: "MMA virtual prediction game",
+  description:
+    "Telegram MMA prediction app",
 };
 
 export default function RootLayout({
@@ -19,11 +20,11 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <Script
-          src="https://telegram.org/js/telegram-web-app.js?57"
+          src="https://telegram.org/js/telegram-web-app.js?59"
           strategy="beforeInteractive"
         />
 
-      <TelegramProvider>
+        <TelegramProvider>
           {children}
         </TelegramProvider>
       </body>
