@@ -49,7 +49,7 @@ export default function WalletPage() {
   // Configurable Admin Details
   const ADMIN_TELEBIRR_NO = "0930327375";
   const ADMIN_FAYDA_ID = "1029 3847 5612"; 
-  const ADMIN_NAME = "Verified Merchant / Admin";
+  const ADMIN_NAME = "Yonas";
 
   useEffect(() => {
     if (!loading && user) {
@@ -287,11 +287,11 @@ export default function WalletPage() {
               </p>
             </button>
 
-            {/* Telebirr Account Number */}
+            {/* Telebirr Account Number & Holder */}
             <div className="flex items-center justify-between rounded-xl bg-black/40 p-3">
               <div>
                 <p className="text-[10px] uppercase font-bold tracking-wider text-white/40">
-                  Telebirr Account
+                  Telebirr Account ({ADMIN_NAME})
                 </p>
                 <p className="mt-0.5 font-mono text-lg font-black text-emerald-400">
                   {ADMIN_TELEBIRR_NO}
@@ -451,7 +451,7 @@ export default function WalletPage() {
               <div className="rounded-xl bg-white/5 p-3 flex items-center justify-between text-xs text-left">
                 <div>
                   <p className="text-white/40 text-[10px] uppercase font-semibold">
-                    Account Admin
+                    Account Holder
                   </p>
                   <p className="font-bold text-white mt-0.5">
                     {ADMIN_NAME}
