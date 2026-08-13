@@ -422,7 +422,7 @@ export default function HomePage() {
    */
   function inviteFriends() {
     const appUrl =
-      window.location.href;
+      "https://t.me/FightPredictBot";
 
     const shareText =
       "🥊 Join me on ETFC Fight and make your fight prediction!";
