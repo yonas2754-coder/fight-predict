@@ -415,6 +415,45 @@ export default function HomePage() {
     );
   }
 
+  /*
+   * INVITE FRIENDS
+   *
+   * Opens Telegram's share/contact picker.
+   */
+  function inviteFriends() {
+    const webApp =
+      getTelegramWebApp();
+
+    const appUrl =
+      window.location.href;
+
+    const shareText =
+      "🥊 Join me on ETFC Fight and make your fight prediction!";
+
+    const shareUrl =
+      `https://t.me/share/url?url=${encodeURIComponent(
+        appUrl,
+      )}&text=${encodeURIComponent(
+        shareText,
+      )}`;
+
+    if (webApp) {
+      webApp.HapticFeedback.impactOccurred(
+        "light",
+      );
+
+      webApp.openTelegramLink(
+        shareUrl,
+      );
+    } else {
+      window.open(
+        shareUrl,
+        "_blank",
+        "noopener,noreferrer",
+      );
+    }
+  }
+
   if (telegramLoading) {
     return <LoadingScreen />;
   }
@@ -559,7 +598,7 @@ export default function HomePage() {
               </span>
 
               <span className="ml-2 text-sm font-bold text-white/40">
-                points
+                birr
               </span>
             </div>
 
@@ -576,7 +615,7 @@ export default function HomePage() {
 
         <div className="mt-4 rounded-2xl border border-green-400/20 bg-green-400/10 p-4">
           <p className="text-sm font-black text-green-300">
-            🏆 Win up to 1,000,000 points
+            🏆 Win up to 1,000,000 birr
           </p>
 
           <p className="mt-1 text-xs text-green-300/60">
@@ -844,6 +883,8 @@ export default function HomePage() {
                 </div>
               )}
 
+              {/* LIVE */}
+
               {fight.status ===
                 "LIVE" && (
                 <div className="border-t border-white/10 p-5 text-center">
@@ -884,6 +925,46 @@ export default function HomePage() {
             →
           </span>
         </a>
+
+        {/* INVITE FRIENDS */}
+
+        <button
+          type="button"
+          onClick={inviteFriends}
+          className="mt-3 flex w-full items-center justify-between rounded-2xl bg-white p-5 text-black transition active:scale-[0.98]"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black text-xl">
+              👥
+            </div>
+
+            <div className="text-left">
+              <p className="font-black">
+                Invite Friends
+              </p>
+
+              <p className="mt-1 text-sm text-black/50">
+                Invite your friends to ETFC Fight
+              </p>
+            </div>
+          </div>
+
+          <span className="text-xl">
+            →
+          </span>
+        </button>
+
+        {/* FOOTER */}
+
+        <div className="py-8 text-center">
+          <p className="text-xs text-white/20">
+            ETFC Fight
+          </p>
+
+          <p className="mt-1 text-[10px] text-white/10">
+            Predict responsibly
+          </p>
+        </div>
       </div>
 
       {/* CONFIRMATION MODAL */}
@@ -1106,11 +1187,8 @@ function ConfirmationModal({
         </div>
 
         <p className="mt-4 text-center text-xs text-black/40">
-          Maximum possible return:
-          {" "}
-          {MAX_WIN.toLocaleString()}
-          {" "}
-          points
+          Maximum possible return:{" "}
+          {MAX_WIN.toLocaleString()} Birr
         </p>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
