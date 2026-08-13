@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import {
   useEffect,
   useMemo,
@@ -38,6 +37,8 @@ type SelectedFighter = "A" | "B" | null;
 
 const AMOUNTS = [50, 100, 200, 500];
 
+const MAX_WIN = 1_000_000;
+
 export default function HomePage() {
   const {
     user,
@@ -65,6 +66,9 @@ export default function HomePage() {
   const [showConfirmation, setShowConfirmation] =
     useState(false);
 
+  const [showWithdrawMessage, setShowWithdrawMessage] =
+    useState(false);
+
   const [placingPrediction, setPlacingPrediction] =
     useState(false);
 
@@ -87,12 +91,10 @@ export default function HomePage() {
       setLoadingFight(true);
       setError("");
 
-      const response = await fetch(
-        "/api/fights",
-        {
+      const response =
+        await fetch("/api/fights", {
           cache: "no-store",
-        },
-      );
+        });
 
       const result =
         await response.json();
@@ -184,9 +186,12 @@ export default function HomePage() {
         return 0;
       }
 
-      return Math.floor(
-        amount /
-          (selectedProbability / 100),
+      return Math.min(
+        Math.floor(
+          amount /
+            (selectedProbability / 100),
+        ),
+        MAX_WIN,
       );
     }, [
       amount,
@@ -248,9 +253,7 @@ export default function HomePage() {
       Number(value);
 
     if (
-      Number.isFinite(
-        numericValue,
-      ) &&
+      Number.isFinite(numericValue) &&
       numericValue > 0
     ) {
       setAmount(
@@ -267,7 +270,6 @@ export default function HomePage() {
       setError(
         "You are not authenticated.",
       );
-
       return;
     }
 
@@ -275,17 +277,13 @@ export default function HomePage() {
       setError(
         "No fight is available.",
       );
-
       return;
     }
 
-    if (
-      fight.status !== "UPCOMING"
-    ) {
+    if (fight.status !== "UPCOMING") {
       setError(
         "Predictions are closed.",
       );
-
       return;
     }
 
@@ -293,7 +291,6 @@ export default function HomePage() {
       setError(
         "Please select a fighter.",
       );
-
       return;
     }
 
@@ -304,7 +301,6 @@ export default function HomePage() {
       setError(
         "Enter a valid prediction amount.",
       );
-
       return;
     }
 
@@ -312,7 +308,6 @@ export default function HomePage() {
       setError(
         "Insufficient balance.",
       );
-
       return;
     }
 
@@ -409,6 +404,17 @@ export default function HomePage() {
     }
   }
 
+  function openWithdraw() {
+    setShowWithdrawMessage(true);
+
+    const webApp =
+      getTelegramWebApp();
+
+    webApp?.HapticFeedback.impactOccurred(
+      "light",
+    );
+  }
+
   if (telegramLoading) {
     return <LoadingScreen />;
   }
@@ -422,7 +428,7 @@ export default function HomePage() {
           </div>
 
           <h1 className="mt-5 text-3xl font-black">
-            Fight Predict
+            ETFC Fight
           </h1>
 
           <p className="mt-3 text-white/50">
@@ -468,12 +474,15 @@ export default function HomePage() {
             </p>
 
             <h1 className="text-2xl font-black">
-              {user.firstName}
+              ETFC Fight
             </h1>
+
+            <p className="mt-1 text-xs text-white/40">
+              Welcome, {user.firstName}
+            </p>
           </div>
 
           <div className="flex items-center gap-2">
-
             {user.role === "ADMIN" && (
               <a
                 href="/admin"
@@ -499,10 +508,47 @@ export default function HomePage() {
           </div>
         </header>
 
-        {/* BALANCE */}
+        {/* PROMO */}
 
         <section className="mt-5 rounded-3xl bg-white p-5 text-black">
-          <p className="text-sm font-medium text-black/50">
+          <p className="text-sm font-bold text-black/50">
+            ETFC Fight Prediction
+          </p>
+
+          <h2 className="mt-2 text-3xl font-black">
+            Win up to
+          </h2>
+
+          <p className="mt-1 text-4xl font-black">
+            1,000,000
+          </p>
+
+          <p className="mt-2 text-sm text-black/50">
+            points on a successful prediction.
+          </p>
+
+          <div className="mt-5 flex gap-2">
+            <a
+              href="/wallet"
+              className="flex-1 rounded-xl bg-black px-4 py-3 text-center text-sm font-black text-white"
+            >
+              💰 Wallet
+            </a>
+
+            <button
+              type="button"
+              onClick={openWithdraw}
+              className="flex-1 rounded-xl border border-black/10 bg-black/5 px-4 py-3 text-sm font-black"
+            >
+              💸 Withdraw
+            </button>
+          </div>
+        </section>
+
+        {/* BALANCE */}
+
+        <section className="mt-4 rounded-3xl bg-white/10 p-5">
+          <p className="text-sm font-medium text-white/40">
             Your Balance
           </p>
 
@@ -512,19 +558,33 @@ export default function HomePage() {
                 {user.balance.toLocaleString()}
               </span>
 
-              <span className="ml-2 text-sm font-bold text-black/40">
+              <span className="ml-2 text-sm font-bold text-white/40">
                 points
               </span>
             </div>
 
             <a
               href="/wallet"
-              className="rounded-xl bg-black px-4 py-2 text-sm font-bold text-white"
+              className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-black"
             >
               Wallet
             </a>
           </div>
         </section>
+
+        {/* MAX WIN MESSAGE */}
+
+        <div className="mt-4 rounded-2xl border border-green-400/20 bg-green-400/10 p-4">
+          <p className="text-sm font-black text-green-300">
+            🏆 Win up to 1,000,000 points
+          </p>
+
+          <p className="mt-1 text-xs text-green-300/60">
+            Your final winnings depend on
+            your prediction and the fight
+            result.
+          </p>
+        </div>
 
         {/* ERROR */}
 
@@ -545,7 +605,6 @@ export default function HomePage() {
         {/* FIGHT */}
 
         <section className="mt-7">
-
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-white/40">
@@ -553,7 +612,7 @@ export default function HomePage() {
               </p>
 
               <h2 className="text-2xl font-black">
-                Current Fight
+                ETFC Fight
               </h2>
             </div>
 
@@ -579,19 +638,15 @@ export default function HomePage() {
               {/* FIGHT HEADER */}
 
               <div className="p-5">
-
                 <div className="flex items-center justify-between">
-
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-black ${
-                      fight.status ===
-                      "LIVE"
+                      fight.status === "LIVE"
                         ? "bg-red-500/20 text-red-300"
                         : "bg-yellow-500/20 text-yellow-300"
                     }`}
                   >
-                    {fight.status ===
-                    "LIVE"
+                    {fight.status === "LIVE"
                       ? "🔴 LIVE"
                       : "UPCOMING"}
                   </span>
@@ -603,7 +658,6 @@ export default function HomePage() {
                       )}
                     </span>
                   )}
-
                 </div>
 
                 <h3 className="mt-5 text-center text-2xl font-black">
@@ -619,11 +673,8 @@ export default function HomePage() {
                 {/* FIGHTERS */}
 
                 <div className="mt-6 grid grid-cols-2 gap-3">
-
                   <FighterCard
-                    name={
-                      fight.fighterAName
-                    }
+                    name={fight.fighterAName}
                     probability={
                       fight.fighterAProbability
                     }
@@ -637,12 +688,11 @@ export default function HomePage() {
                     onClick={() =>
                       selectFighter("A")
                     }
+                    image="/fighters/sedo.jpg"
                   />
 
                   <FighterCard
-                    name={
-                      fight.fighterBName
-                    }
+                    name={fight.fighterBName}
                     probability={
                       fight.fighterBProbability
                     }
@@ -656,8 +706,8 @@ export default function HomePage() {
                     onClick={() =>
                       selectFighter("B")
                     }
+                    image="/fighters/johnny.jpg"
                   />
-
                 </div>
 
                 {/* PROBABILITY */}
@@ -676,7 +726,6 @@ export default function HomePage() {
                     fight.fighterBProbability
                   }
                 />
-
               </div>
 
               {/* PREDICTION AREA */}
@@ -684,13 +733,11 @@ export default function HomePage() {
               {fight.status ===
                 "UPCOMING" && (
                 <div className="border-t border-white/10 p-5">
-
                   <p className="text-sm font-bold text-white/50">
                     Prediction amount
                   </p>
 
                   <div className="mt-3 grid grid-cols-4 gap-2">
-
                     {AMOUNTS.map(
                       (value) => {
                         const disabled =
@@ -722,16 +769,13 @@ export default function HomePage() {
                         );
                       },
                     )}
-
                   </div>
 
                   <input
                     type="number"
                     min="1"
                     max={user.balance}
-                    value={
-                      customAmount
-                    }
+                    value={customAmount}
                     onChange={(event) =>
                       handleCustomAmount(
                         event.target.value,
@@ -743,7 +787,6 @@ export default function HomePage() {
 
                   {selectedFighter && (
                     <div className="mt-4 rounded-2xl bg-white/5 p-4">
-
                       <div className="flex justify-between">
                         <span className="text-sm text-white/40">
                           Selected
@@ -764,7 +807,8 @@ export default function HomePage() {
                         <span className="font-black">
                           {
                             selectedProbability
-                          }%
+                          }
+                          %
                         </span>
                       </div>
 
@@ -777,7 +821,6 @@ export default function HomePage() {
                           {potentialWin.toLocaleString()}
                         </span>
                       </div>
-
                     </div>
                   )}
 
@@ -798,11 +841,11 @@ export default function HomePage() {
                       ? `Predict ${selectedFighterName}`
                       : "Select a Fighter"}
                   </button>
-
                 </div>
               )}
 
-              {fight.status === "LIVE" && (
+              {fight.status ===
+                "LIVE" && (
                 <div className="border-t border-white/10 p-5 text-center">
                   <div className="text-4xl">
                     🔴
@@ -817,7 +860,6 @@ export default function HomePage() {
                   </p>
                 </div>
               )}
-
             </div>
           )}
         </section>
@@ -842,39 +884,39 @@ export default function HomePage() {
             →
           </span>
         </a>
-
       </div>
 
       {/* CONFIRMATION MODAL */}
 
       {showConfirmation && (
         <ConfirmationModal
-          fighter={
-            selectedFighterName
-          }
+          fighter={selectedFighterName}
           amount={amount}
-          potentialWin={
-            potentialWin
-          }
+          potentialWin={potentialWin}
           onCancel={() =>
             setShowConfirmation(false)
           }
-          onConfirm={
-            placePrediction
-          }
-          loading={
-            placingPrediction
-          }
+          onConfirm={placePrediction}
+          loading={placingPrediction}
         />
       )}
 
+      {/* WITHDRAW MODAL */}
+
+      {showWithdrawMessage && (
+        <WithdrawModal
+          onClose={() =>
+            setShowWithdrawMessage(false)
+          }
+        />
+      )}
     </main>
   );
 }
 
-/* =========================================================
-   FIGHTER CARD
-========================================================= */
+/*
+ * Fighter Card
+ */
 
 function FighterCard({
   name,
@@ -882,29 +924,15 @@ function FighterCard({
   selected,
   disabled,
   onClick,
+  image,
 }: {
   name: string;
   probability: number;
   selected: boolean;
   disabled: boolean;
   onClick: () => void;
+  image: string;
 }) {
-  /*
-   * Automatically choose image based
-   * on fighter name.
-   *
-   * Sedo  -> /fighters/sedo.jpg
-   * Johnny -> /fighters/johnny.jpg
-   */
-  const imageSrc =
-    name.toLowerCase().includes("sedo")
-      ? "/fighters/sedo.jpg"
-      : name.toLowerCase().includes(
-          "johnny",
-        )
-      ? "/fighters/johnny.jpg"
-      : null;
-
   return (
     <button
       type="button"
@@ -916,40 +944,37 @@ function FighterCard({
           : "bg-white/5 text-white"
       } disabled:cursor-not-allowed disabled:opacity-50`}
     >
+      <div className="relative h-36 w-full">
+        <img
+          src={image}
+          alt={name}
+          className="h-full w-full object-cover"
+          onError={(event) => {
+            event.currentTarget.style.display =
+              "none";
+          }}
+        />
 
-      {/* FIGHTER IMAGE */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
 
-      <div className="relative mx-auto h-44 w-full overflow-hidden bg-white/5">
-
-        {imageSrc ? (
-          <Image
-            src={imageSrc}
-            alt={`${name} MMA fighter`}
-            fill
-            sizes="(max-width: 768px) 50vw, 200px"
-            className="object-cover object-top"
-            priority
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-6xl">
-            🥊
-          </div>
-        )}
-
-        {/* Probability badge */}
-
-        <div className="absolute right-2 top-2 rounded-full bg-black/70 px-3 py-1 text-sm font-black text-white backdrop-blur">
-          {probability}%
+        <div className="absolute bottom-2 left-0 right-0 text-center text-2xl">
+          🥊
         </div>
-
       </div>
 
-      {/* FIGHTER INFO */}
-
       <div className="p-4">
-
         <p className="font-black">
           {name}
+        </p>
+
+        <p
+          className={`mt-1 text-2xl font-black ${
+            selected
+              ? "text-black"
+              : "text-white"
+          }`}
+        >
+          {probability}%
         </p>
 
         <p
@@ -960,19 +985,17 @@ function FighterCard({
           }`}
         >
           {selected
-            ? "✓ Selected"
-            : "Tap to select"}
+            ? "Selected"
+            : "Select"}
         </p>
-
       </div>
-
     </button>
   );
 }
 
-/* =========================================================
-   PROBABILITY BAR
-========================================================= */
+/*
+ * Probability Bar
+ */
 
 function ProbabilityBar({
   fighterA,
@@ -987,7 +1010,6 @@ function ProbabilityBar({
 }) {
   return (
     <div className="mt-6">
-
       <div className="flex items-center justify-between text-xs">
         <span className="font-bold">
           {fighterA}
@@ -1003,7 +1025,6 @@ function ProbabilityBar({
       </div>
 
       <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-white/10">
-
         <div
           className="bg-white"
           style={{
@@ -1017,16 +1038,14 @@ function ProbabilityBar({
             width: `${probabilityB}%`,
           }}
         />
-
       </div>
-
     </div>
   );
 }
 
-/* =========================================================
-   CONFIRMATION MODAL
-========================================================= */
+/*
+ * Confirmation Modal
+ */
 
 function ConfirmationModal({
   fighter,
@@ -1045,39 +1064,10 @@ function ConfirmationModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-5 backdrop-blur-sm">
-
       <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-black">
-
         <div className="text-center">
-
-          <div className="mx-auto relative h-24 w-24 overflow-hidden rounded-full bg-black/10">
-
-            {fighter
-              .toLowerCase()
-              .includes("sedo") ? (
-              <Image
-                src="/fighters/sedo.jpg"
-                alt="Sedo"
-                fill
-                className="object-cover object-top"
-              />
-            ) : fighter
-                .toLowerCase()
-                .includes(
-                  "johnny",
-                ) ? (
-              <Image
-                src="/fighters/johnny.jpg"
-                alt="Johnny"
-                fill
-                className="object-cover object-top"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-4xl">
-                🥊
-              </div>
-            )}
-
+          <div className="text-5xl">
+            🥊
           </div>
 
           <h2 className="mt-4 text-2xl font-black">
@@ -1091,11 +1081,9 @@ function ConfirmationModal({
           <p className="mt-1 text-2xl font-black">
             {fighter}
           </p>
-
         </div>
 
         <div className="mt-5 rounded-2xl bg-black/5 p-4">
-
           <div className="flex justify-between">
             <span className="text-sm text-black/40">
               Amount
@@ -1115,11 +1103,17 @@ function ConfirmationModal({
               {potentialWin.toLocaleString()}
             </span>
           </div>
-
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3">
+        <p className="mt-4 text-center text-xs text-black/40">
+          Maximum possible return:
+          {" "}
+          {MAX_WIN.toLocaleString()}
+          {" "}
+          points
+        </p>
 
+        <div className="mt-5 grid grid-cols-2 gap-3">
           <button
             type="button"
             disabled={loading}
@@ -1139,71 +1133,117 @@ function ConfirmationModal({
               ? "Placing..."
               : "Confirm"}
           </button>
-
         </div>
-
       </div>
-
     </div>
   );
 }
 
-/* =========================================================
-   LOADING SCREEN
-========================================================= */
+/*
+ * Withdraw Modal
+ */
+
+function WithdrawModal({
+  onClose,
+}: {
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-5 backdrop-blur-sm">
+      <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-black">
+        <div className="text-center">
+          <div className="text-5xl">
+            💸
+          </div>
+
+          <h2 className="mt-4 text-2xl font-black">
+            Withdraw
+          </h2>
+
+          <p className="mt-3 text-sm leading-6 text-black/50">
+            Withdrawals will be available
+            after the fight is completed
+            and the final result has been
+            confirmed.
+          </p>
+        </div>
+
+        <div className="mt-5 rounded-2xl bg-black/5 p-4">
+          <p className="text-sm font-bold">
+            Withdrawal status
+          </p>
+
+          <p className="mt-1 text-sm text-black/50">
+            🔒 Currently unavailable
+          </p>
+
+          <p className="mt-3 text-xs text-black/40">
+            Once the fight is complete,
+            eligible winnings can be
+            processed according to the
+            final result.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-5 w-full rounded-2xl bg-black py-4 font-black text-white"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/*
+ * Loading Screen
+ */
 
 function LoadingScreen() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-black text-white">
-
       <div className="text-center">
-
         <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white" />
 
         <p className="mt-4 text-sm text-white/50">
-          Loading Fight Predict...
+          Loading ETFC Fight...
         </p>
-
       </div>
-
     </main>
   );
 }
 
-/* =========================================================
-   FIGHT SKELETON
-========================================================= */
+/*
+ * Fight Skeleton
+ */
 
 function FightSkeleton() {
   return (
     <div className="animate-pulse rounded-3xl bg-white/10 p-5">
-
       <div className="h-5 w-20 rounded bg-white/10" />
 
       <div className="mx-auto mt-6 h-7 w-48 rounded bg-white/10" />
 
       <div className="mt-6 grid grid-cols-2 gap-3">
+        <div className="h-52 rounded-2xl bg-white/5" />
 
-        <div className="h-48 rounded-2xl bg-white/5" />
-
-        <div className="h-48 rounded-2xl bg-white/5" />
-
+        <div className="h-52 rounded-2xl bg-white/5" />
       </div>
 
       <div className="mt-6 h-3 rounded-full bg-white/5" />
-
     </div>
   );
 }
 
-/* =========================================================
-   EMPTY FIGHT
-========================================================= */
+/*
+ * Empty Fight
+ */
 
 function EmptyFight() {
   return (
     <div className="rounded-3xl bg-white/10 p-8 text-center">
-
       <div className="text-6xl">
         🥊
       </div>
@@ -1214,7 +1254,7 @@ function EmptyFight() {
 
       <p className="mt-2 text-sm text-white/40">
         Check back later for the next
-        fight.
+        ETFC fight.
       </p>
 
       <button
@@ -1226,14 +1266,13 @@ function EmptyFight() {
       >
         Refresh
       </button>
-
     </div>
   );
 }
 
-/* =========================================================
-   DATE FORMATTER
-========================================================= */
+/*
+ * Date formatter
+ */
 
 function formatDate(
   value: string,
