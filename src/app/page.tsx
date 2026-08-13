@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   useEffect,
   useMemo,
@@ -11,9 +12,7 @@ import { getTelegramWebApp } from "@/lib/telegram";
 
 type Fight = {
   id: string;
-
   title: string;
-
   description: string | null;
 
   fighterAName: string;
@@ -37,12 +36,7 @@ type Fight = {
 
 type SelectedFighter = "A" | "B" | null;
 
-const AMOUNTS = [
-  50,
-  100,
-  200,
-  500,
-];
+const AMOUNTS = [50, 100, 200, 500];
 
 export default function HomePage() {
   const {
@@ -80,9 +74,6 @@ export default function HomePage() {
   const [success, setSuccess] =
     useState("");
 
-  /*
-   * Load the current fight
-   */
   useEffect(() => {
     if (telegramLoading) {
       return;
@@ -96,10 +87,12 @@ export default function HomePage() {
       setLoadingFight(true);
       setError("");
 
-      const response =
-        await fetch("/api/fights", {
+      const response = await fetch(
+        "/api/fights",
+        {
           cache: "no-store",
-        });
+        },
+      );
 
       const result =
         await response.json();
@@ -114,10 +107,6 @@ export default function HomePage() {
       const fights: Fight[] =
         result.data ?? [];
 
-      /*
-       * Prefer LIVE fight.
-       * Otherwise use the first UPCOMING fight.
-       */
       const activeFight =
         fights.find(
           (item) =>
@@ -125,8 +114,7 @@ export default function HomePage() {
         ) ??
         fights.find(
           (item) =>
-            item.status ===
-            "UPCOMING",
+            item.status === "UPCOMING",
         ) ??
         null;
 
@@ -147,24 +135,17 @@ export default function HomePage() {
     }
   }
 
-  /*
-   * Current selected fighter name
-   */
   const selectedFighterName =
     useMemo(() => {
       if (!fight) {
         return "";
       }
 
-      if (
-        selectedFighter === "A"
-      ) {
+      if (selectedFighter === "A") {
         return fight.fighterAName;
       }
 
-      if (
-        selectedFighter === "B"
-      ) {
+      if (selectedFighter === "B") {
         return fight.fighterBName;
       }
 
@@ -174,24 +155,17 @@ export default function HomePage() {
       selectedFighter,
     ]);
 
-  /*
-   * Selected fighter probability
-   */
   const selectedProbability =
     useMemo(() => {
       if (!fight) {
         return 0;
       }
 
-      if (
-        selectedFighter === "A"
-      ) {
+      if (selectedFighter === "A") {
         return fight.fighterAProbability;
       }
 
-      if (
-        selectedFighter === "B"
-      ) {
+      if (selectedFighter === "B") {
         return fight.fighterBProbability;
       }
 
@@ -201,20 +175,6 @@ export default function HomePage() {
       selectedFighter,
     ]);
 
-  /*
-   * Potential win.
-   *
-   * Example:
-   *
-   * Sedo = 35%
-   * Amount = 100
-   *
-   * 100 / 0.35 = 285
-   *
-   * This is only a frontend estimate.
-   * The backend must calculate the real
-   * payout again.
-   */
   const potentialWin =
     useMemo(() => {
       if (
@@ -233,9 +193,6 @@ export default function HomePage() {
       selectedProbability,
     ]);
 
-  /*
-   * Choose fighter
-   */
   function selectFighter(
     fighter: SelectedFighter,
   ) {
@@ -260,9 +217,6 @@ export default function HomePage() {
     );
   }
 
-  /*
-   * Choose predefined amount
-   */
   function selectAmount(
     value: number,
   ) {
@@ -285,9 +239,6 @@ export default function HomePage() {
     );
   }
 
-  /*
-   * Custom amount
-   */
   function handleCustomAmount(
     value: string,
   ) {
@@ -308,9 +259,6 @@ export default function HomePage() {
     }
   }
 
-  /*
-   * Open confirmation
-   */
   function openConfirmation() {
     setError("");
     setSuccess("");
@@ -371,9 +319,6 @@ export default function HomePage() {
     setShowConfirmation(true);
   }
 
-  /*
-   * Submit prediction
-   */
   async function placePrediction() {
     if (!user || !fight) {
       return;
@@ -424,9 +369,6 @@ export default function HomePage() {
         );
       }
 
-      /*
-       * Success haptic
-       */
       const webApp =
         getTelegramWebApp();
 
@@ -435,23 +377,14 @@ export default function HomePage() {
       );
 
       setShowConfirmation(false);
-
       setSelectedFighter(null);
-
       setCustomAmount("");
 
       setSuccess(
         `Prediction placed on ${fighterName}!`,
       );
 
-      /*
-       * Refresh user balance
-       */
       await refreshUser();
-
-      /*
-       * Reload fight information
-       */
       await loadFight();
     } catch (error) {
       console.error(
@@ -476,18 +409,10 @@ export default function HomePage() {
     }
   }
 
-  /*
-   * Telegram loading
-   */
   if (telegramLoading) {
-    return (
-      <LoadingScreen />
-    );
+    return <LoadingScreen />;
   }
 
-  /*
-   * Browser access
-   */
   if (!isTelegram) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black px-6 text-white">
@@ -509,9 +434,6 @@ export default function HomePage() {
     );
   }
 
-  /*
-   * Authentication
-   */
   if (!user) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black px-6 text-white">
@@ -536,6 +458,7 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-black pb-28 text-white">
       <div className="mx-auto w-full max-w-md px-5 py-5">
+
         {/* HEADER */}
 
         <header className="flex items-center justify-between">
@@ -550,8 +473,8 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {user.role ===
-              "ADMIN" && (
+
+            {user.role === "ADMIN" && (
               <a
                 href="/admin"
                 className="rounded-xl bg-white/10 px-3 py-2 text-xs font-bold"
@@ -600,7 +523,6 @@ export default function HomePage() {
             >
               Wallet
             </a>
-            
           </div>
         </section>
 
@@ -623,6 +545,7 @@ export default function HomePage() {
         {/* FIGHT */}
 
         <section className="mt-7">
+
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-white/40">
@@ -652,10 +575,13 @@ export default function HomePage() {
             <EmptyFight />
           ) : (
             <div className="overflow-hidden rounded-3xl bg-white/10">
+
               {/* FIGHT HEADER */}
 
               <div className="p-5">
+
                 <div className="flex items-center justify-between">
+
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-black ${
                       fight.status ===
@@ -677,6 +603,7 @@ export default function HomePage() {
                       )}
                     </span>
                   )}
+
                 </div>
 
                 <h3 className="mt-5 text-center text-2xl font-black">
@@ -692,6 +619,7 @@ export default function HomePage() {
                 {/* FIGHTERS */}
 
                 <div className="mt-6 grid grid-cols-2 gap-3">
+
                   <FighterCard
                     name={
                       fight.fighterAName
@@ -700,8 +628,7 @@ export default function HomePage() {
                       fight.fighterAProbability
                     }
                     selected={
-                      selectedFighter ===
-                      "A"
+                      selectedFighter === "A"
                     }
                     disabled={
                       fight.status !==
@@ -720,8 +647,7 @@ export default function HomePage() {
                       fight.fighterBProbability
                     }
                     selected={
-                      selectedFighter ===
-                      "B"
+                      selectedFighter === "B"
                     }
                     disabled={
                       fight.status !==
@@ -731,6 +657,7 @@ export default function HomePage() {
                       selectFighter("B")
                     }
                   />
+
                 </div>
 
                 {/* PROBABILITY */}
@@ -749,6 +676,7 @@ export default function HomePage() {
                     fight.fighterBProbability
                   }
                 />
+
               </div>
 
               {/* PREDICTION AREA */}
@@ -756,11 +684,13 @@ export default function HomePage() {
               {fight.status ===
                 "UPCOMING" && (
                 <div className="border-t border-white/10 p-5">
+
                   <p className="text-sm font-bold text-white/50">
                     Prediction amount
                   </p>
 
                   <div className="mt-3 grid grid-cols-4 gap-2">
+
                     {AMOUNTS.map(
                       (value) => {
                         const disabled =
@@ -792,9 +722,8 @@ export default function HomePage() {
                         );
                       },
                     )}
-                  </div>
 
-                  {/* CUSTOM AMOUNT */}
+                  </div>
 
                   <input
                     type="number"
@@ -805,18 +734,16 @@ export default function HomePage() {
                     }
                     onChange={(event) =>
                       handleCustomAmount(
-                        event.target
-                          .value,
+                        event.target.value,
                       )
                     }
                     placeholder="Custom amount"
                     className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none placeholder:text-white/30"
                   />
 
-                  {/* POTENTIAL WIN */}
-
                   {selectedFighter && (
                     <div className="mt-4 rounded-2xl bg-white/5 p-4">
+
                       <div className="flex justify-between">
                         <span className="text-sm text-white/40">
                           Selected
@@ -837,8 +764,7 @@ export default function HomePage() {
                         <span className="font-black">
                           {
                             selectedProbability
-                          }
-                          %
+                          }%
                         </span>
                       </div>
 
@@ -851,10 +777,9 @@ export default function HomePage() {
                           {potentialWin.toLocaleString()}
                         </span>
                       </div>
+
                     </div>
                   )}
-
-                  {/* PREDICT BUTTON */}
 
                   <button
                     type="button"
@@ -873,11 +798,11 @@ export default function HomePage() {
                       ? `Predict ${selectedFighterName}`
                       : "Select a Fighter"}
                   </button>
+
                 </div>
               )}
 
-              {fight.status ===
-                "LIVE" && (
+              {fight.status === "LIVE" && (
                 <div className="border-t border-white/10 p-5 text-center">
                   <div className="text-4xl">
                     🔴
@@ -892,11 +817,12 @@ export default function HomePage() {
                   </p>
                 </div>
               )}
+
             </div>
           )}
         </section>
 
-        {/* HISTORY LINK */}
+        {/* HISTORY */}
 
         <a
           href="/history"
@@ -916,6 +842,7 @@ export default function HomePage() {
             →
           </span>
         </a>
+
       </div>
 
       {/* CONFIRMATION MODAL */}
@@ -930,9 +857,7 @@ export default function HomePage() {
             potentialWin
           }
           onCancel={() =>
-            setShowConfirmation(
-              false,
-            )
+            setShowConfirmation(false)
           }
           onConfirm={
             placePrediction
@@ -942,13 +867,14 @@ export default function HomePage() {
           }
         />
       )}
+
     </main>
   );
 }
 
-/*
- * Fighter Card
- */
+/* =========================================================
+   FIGHTER CARD
+========================================================= */
 
 function FighterCard({
   name,
@@ -963,53 +889,90 @@ function FighterCard({
   disabled: boolean;
   onClick: () => void;
 }) {
+  /*
+   * Automatically choose image based
+   * on fighter name.
+   *
+   * Sedo  -> /fighters/sedo.jpg
+   * Johnny -> /fighters/johnny.jpg
+   */
+  const imageSrc =
+    name.toLowerCase().includes("sedo")
+      ? "/fighters/sedo.jpg"
+      : name.toLowerCase().includes(
+          "johnny",
+        )
+      ? "/fighters/johnny.jpg"
+      : null;
+
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`rounded-2xl p-4 text-center transition ${
+      className={`overflow-hidden rounded-2xl text-center transition ${
         selected
           ? "bg-white text-black"
           : "bg-white/5 text-white"
       } disabled:cursor-not-allowed disabled:opacity-50`}
     >
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/10 text-2xl">
-        🥊
+
+      {/* FIGHTER IMAGE */}
+
+      <div className="relative mx-auto h-44 w-full overflow-hidden bg-white/5">
+
+        {imageSrc ? (
+          <Image
+            src={imageSrc}
+            alt={`${name} MMA fighter`}
+            fill
+            sizes="(max-width: 768px) 50vw, 200px"
+            className="object-cover object-top"
+            priority
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-6xl">
+            🥊
+          </div>
+        )}
+
+        {/* Probability badge */}
+
+        <div className="absolute right-2 top-2 rounded-full bg-black/70 px-3 py-1 text-sm font-black text-white backdrop-blur">
+          {probability}%
+        </div>
+
       </div>
 
-      <p className="mt-3 font-black">
-        {name}
-      </p>
+      {/* FIGHTER INFO */}
 
-      <p
-        className={`mt-1 text-2xl font-black ${
-          selected
-            ? "text-black"
-            : "text-white"
-        }`}
-      >
-        {probability}%
-      </p>
+      <div className="p-4">
 
-      <p
-        className={`mt-1 text-xs ${
-          selected
-            ? "text-black/50"
-            : "text-white/40"
-        }`}
-      >
-        {selected
-          ? "Selected"
-          : "Select"}
-      </p>
+        <p className="font-black">
+          {name}
+        </p>
+
+        <p
+          className={`mt-1 text-xs ${
+            selected
+              ? "text-black/50"
+              : "text-white/40"
+          }`}
+        >
+          {selected
+            ? "✓ Selected"
+            : "Tap to select"}
+        </p>
+
+      </div>
+
     </button>
   );
 }
 
-/*
- * Probability Bar
- */
+/* =========================================================
+   PROBABILITY BAR
+========================================================= */
 
 function ProbabilityBar({
   fighterA,
@@ -1024,6 +987,7 @@ function ProbabilityBar({
 }) {
   return (
     <div className="mt-6">
+
       <div className="flex items-center justify-between text-xs">
         <span className="font-bold">
           {fighterA}
@@ -1039,6 +1003,7 @@ function ProbabilityBar({
       </div>
 
       <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-white/10">
+
         <div
           className="bg-white"
           style={{
@@ -1052,14 +1017,16 @@ function ProbabilityBar({
             width: `${probabilityB}%`,
           }}
         />
+
       </div>
+
     </div>
   );
 }
 
-/*
- * Confirmation Modal
- */
+/* =========================================================
+   CONFIRMATION MODAL
+========================================================= */
 
 function ConfirmationModal({
   fighter,
@@ -1078,10 +1045,39 @@ function ConfirmationModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-5 backdrop-blur-sm">
+
       <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-black">
+
         <div className="text-center">
-          <div className="text-5xl">
-            🥊
+
+          <div className="mx-auto relative h-24 w-24 overflow-hidden rounded-full bg-black/10">
+
+            {fighter
+              .toLowerCase()
+              .includes("sedo") ? (
+              <Image
+                src="/fighters/sedo.jpg"
+                alt="Sedo"
+                fill
+                className="object-cover object-top"
+              />
+            ) : fighter
+                .toLowerCase()
+                .includes(
+                  "johnny",
+                ) ? (
+              <Image
+                src="/fighters/johnny.jpg"
+                alt="Johnny"
+                fill
+                className="object-cover object-top"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-4xl">
+                🥊
+              </div>
+            )}
+
           </div>
 
           <h2 className="mt-4 text-2xl font-black">
@@ -1095,9 +1091,11 @@ function ConfirmationModal({
           <p className="mt-1 text-2xl font-black">
             {fighter}
           </p>
+
         </div>
 
         <div className="mt-5 rounded-2xl bg-black/5 p-4">
+
           <div className="flex justify-between">
             <span className="text-sm text-black/40">
               Amount
@@ -1117,9 +1115,11 @@ function ConfirmationModal({
               {potentialWin.toLocaleString()}
             </span>
           </div>
+
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
+
           <button
             type="button"
             disabled={loading}
@@ -1139,59 +1139,71 @@ function ConfirmationModal({
               ? "Placing..."
               : "Confirm"}
           </button>
+
         </div>
+
       </div>
+
     </div>
   );
 }
 
-/*
- * Loading Screen
- */
+/* =========================================================
+   LOADING SCREEN
+========================================================= */
 
 function LoadingScreen() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-black text-white">
+
       <div className="text-center">
+
         <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white" />
 
         <p className="mt-4 text-sm text-white/50">
           Loading Fight Predict...
         </p>
+
       </div>
+
     </main>
   );
 }
 
-/*
- * Fight Skeleton
- */
+/* =========================================================
+   FIGHT SKELETON
+========================================================= */
 
 function FightSkeleton() {
   return (
     <div className="animate-pulse rounded-3xl bg-white/10 p-5">
+
       <div className="h-5 w-20 rounded bg-white/10" />
 
       <div className="mx-auto mt-6 h-7 w-48 rounded bg-white/10" />
 
       <div className="mt-6 grid grid-cols-2 gap-3">
-        <div className="h-40 rounded-2xl bg-white/5" />
 
-        <div className="h-40 rounded-2xl bg-white/5" />
+        <div className="h-48 rounded-2xl bg-white/5" />
+
+        <div className="h-48 rounded-2xl bg-white/5" />
+
       </div>
 
       <div className="mt-6 h-3 rounded-full bg-white/5" />
+
     </div>
   );
 }
 
-/*
- * Empty Fight
- */
+/* =========================================================
+   EMPTY FIGHT
+========================================================= */
 
 function EmptyFight() {
   return (
     <div className="rounded-3xl bg-white/10 p-8 text-center">
+
       <div className="text-6xl">
         🥊
       </div>
@@ -1214,13 +1226,14 @@ function EmptyFight() {
       >
         Refresh
       </button>
+
     </div>
   );
 }
 
-/*
- * Date formatter
- */
+/* =========================================================
+   DATE FORMATTER
+========================================================= */
 
 function formatDate(
   value: string,
