@@ -48,7 +48,7 @@ model User {
   lastName     String?
   photoUrl     String?
   role         UserRole      @default(USER)
-  balance      Int           @default(1000)
+  balance      Int           @default(0)
   predictions  Prediction[]
   transactions Transaction[]
   deposits     Deposit[]
