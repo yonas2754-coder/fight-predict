@@ -416,14 +416,11 @@ export default function HomePage() {
   }
 
   /*
-   * INVITE FRIENDS
+   * Invite Friends
    *
-   * Opens Telegram's share/contact picker.
+   * Opens Telegram share/contact picker.
    */
   function inviteFriends() {
-    const webApp =
-      getTelegramWebApp();
-
     const appUrl =
       window.location.href;
 
@@ -437,21 +434,18 @@ export default function HomePage() {
         shareText,
       )}`;
 
-    if (webApp) {
-      webApp.HapticFeedback.impactOccurred(
-        "light",
-      );
+    const webApp =
+      getTelegramWebApp();
 
-      webApp.openTelegramLink(
-        shareUrl,
-      );
-    } else {
-      window.open(
-        shareUrl,
-        "_blank",
-        "noopener,noreferrer",
-      );
-    }
+    webApp?.HapticFeedback.impactOccurred(
+      "light",
+    );
+
+    window.open(
+      shareUrl,
+      "_blank",
+      "noopener,noreferrer",
+    );
   }
 
   if (telegramLoading) {
