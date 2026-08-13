@@ -5,6 +5,8 @@ import "./globals.css";
 
 import TelegramProvider from "@/components/telegram/telegram-provider";
 
+import SplashScreen from "@/components/splash-screen";
+
 export const metadata: Metadata = {
   title: "Fight Predict",
   description:
@@ -25,6 +27,7 @@ export default function RootLayout({
         />
 
         <TelegramProvider>
+           <SplashScreen />
           {children}
         </TelegramProvider>
       </body>
