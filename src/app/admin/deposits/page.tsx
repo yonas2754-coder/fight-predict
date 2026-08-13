@@ -200,8 +200,8 @@ export default function AdminDepositsPage() {
 
   if (telegramLoading) {
     return (
-      <main className="p-6">
-        <p>
+      <main className="p-6 text-white">
+        <p className="text-white/70">
           Loading Telegram...
         </p>
       </main>
@@ -215,7 +215,7 @@ export default function AdminDepositsPage() {
   if (!user) {
     return (
       <main className="p-6">
-        <div className="rounded-xl bg-red-50 p-4 text-red-700">
+        <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-red-300">
           Please open this page
           inside Telegram.
         </div>
@@ -226,7 +226,7 @@ export default function AdminDepositsPage() {
   if (user.role !== "ADMIN") {
     return (
       <main className="p-6">
-        <div className="rounded-xl bg-red-50 p-4 text-red-700">
+        <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-red-300">
           You do not have permission
           to access the admin
           dashboard.
@@ -240,14 +240,14 @@ export default function AdminDepositsPage() {
   // ---------------------------------------------
 
   return (
-    <main className="mx-auto w-full max-w-6xl p-4 pb-24">
+    <main className="mx-auto w-full max-w-6xl p-4 pb-24 text-white">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">
+          <h1 className="text-2xl font-bold text-white">
             Deposit Dashboard
           </h1>
 
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-white/50">
             Review Telebirr deposits
           </p>
         </div>
@@ -255,7 +255,7 @@ export default function AdminDepositsPage() {
         <button
           onClick={loadDeposits}
           disabled={loading}
-          className="rounded-xl border px-4 py-2 text-sm font-medium"
+          className="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-50"
         >
           {loading
             ? "Loading..."
@@ -264,17 +264,17 @@ export default function AdminDepositsPage() {
       </div>
 
       {error && (
-        <div className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">
+        <div className="mb-5 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
           {error}
         </div>
       )}
 
       {loading ? (
-        <div className="rounded-xl border p-6 text-center">
+        <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-center text-white/60">
           Loading deposits...
         </div>
       ) : deposits.length === 0 ? (
-        <div className="rounded-xl border p-6 text-center text-gray-500">
+        <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-center text-white/50">
           No deposits found.
         </div>
       ) : (
@@ -313,7 +313,7 @@ export default function AdminDepositsPage() {
 
       {selectedImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
           onClick={() =>
             setSelectedImage(null)
           }
@@ -327,14 +327,14 @@ export default function AdminDepositsPage() {
             <img
               src={selectedImage}
               alt="Telebirr payment screenshot"
-              className="max-h-[85vh] max-w-full rounded-xl object-contain"
+              className="max-h-[85vh] max-w-full rounded-xl border border-white/20 object-contain"
             />
 
             <button
               onClick={() =>
                 setSelectedImage(null)
               }
-              className="absolute right-2 top-2 rounded-full bg-black px-4 py-2 text-white"
+              className="absolute right-2 top-2 rounded-full bg-neutral-800 px-4 py-2 text-sm font-bold text-white hover:bg-neutral-700"
             >
               Close
             </button>
@@ -375,7 +375,7 @@ function DepositCard({
     ).toLocaleString();
 
   return (
-    <article className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+    <article className="overflow-hidden rounded-2xl border border-white/10 bg-neutral-900 shadow-md">
       <div className="p-5">
         <div className="flex flex-col gap-5 md:flex-row">
           {/* Screenshot */}
@@ -386,7 +386,7 @@ function DepositCard({
                 onClick={
                   onImageClick
                 }
-                className="block w-full overflow-hidden rounded-xl border"
+                className="block w-full overflow-hidden rounded-xl border border-white/10 transition-transform active:scale-95"
               >
                 <img
                   src={
@@ -397,7 +397,7 @@ function DepositCard({
                 />
               </button>
             ) : (
-              <div className="flex h-48 items-center justify-center rounded-xl bg-gray-100 text-sm text-gray-500">
+              <div className="flex h-48 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-sm text-white/40">
                 No screenshot
               </div>
             )}
@@ -408,14 +408,14 @@ function DepositCard({
           <div className="flex-1">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-bold">
+                <h2 className="text-lg font-bold text-white">
                   {userName ||
                     "Unknown user"}
                 </h2>
 
                 {deposit.user
                   .username && (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm font-medium text-emerald-400">
                     @
                     {
                       deposit.user
@@ -457,12 +457,12 @@ function DepositCard({
             </div>
 
             {deposit.adminNote && (
-              <div className="mt-4 rounded-xl bg-gray-50 p-3">
-                <p className="text-xs font-semibold text-gray-500">
+              <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
+                <p className="text-xs font-semibold text-white/50">
                   Admin note
                 </p>
 
-                <p className="mt-1 text-sm">
+                <p className="mt-1 text-sm text-white/90">
                   {deposit.adminNote}
                 </p>
               </div>
@@ -480,7 +480,7 @@ function DepositCard({
                   disabled={
                     reviewing
                   }
-                  className="flex-1 rounded-xl bg-green-600 px-4 py-3 font-semibold text-white disabled:opacity-50"
+                  className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white transition-all hover:bg-emerald-500 active:scale-[0.98] disabled:opacity-50"
                 >
                   {reviewing
                     ? "Processing..."
@@ -494,7 +494,7 @@ function DepositCard({
                   disabled={
                     reviewing
                   }
-                  className="flex-1 rounded-xl bg-red-600 px-4 py-3 font-semibold text-white disabled:opacity-50"
+                  className="flex-1 rounded-xl bg-rose-600 px-4 py-3 font-bold text-white transition-all hover:bg-rose-500 active:scale-[0.98] disabled:opacity-50"
                 >
                   Reject
                 </button>
@@ -520,11 +520,11 @@ function Info({
 }) {
   return (
     <div>
-      <p className="text-xs font-medium text-gray-500">
+      <p className="text-xs font-medium text-white/50">
         {label}
       </p>
 
-      <p className="mt-1 break-words font-medium">
+      <p className="mt-1 break-words font-bold text-white">
         {value}
       </p>
     </div>
@@ -542,16 +542,16 @@ function StatusBadge({
 }) {
   const styles = {
     PENDING:
-      "bg-yellow-100 text-yellow-800",
+      "bg-amber-500/20 text-amber-300 border-amber-500/30",
     APPROVED:
-      "bg-green-100 text-green-800",
+      "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
     REJECTED:
-      "bg-red-100 text-red-800",
+      "bg-rose-500/20 text-rose-300 border-rose-500/30",
   };
 
   return (
     <span
-      className={`rounded-full px-3 py-1 text-xs font-semibold ${styles[status]}`}
+      className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider ${styles[status]}`}
     >
       {status}
     </span>
