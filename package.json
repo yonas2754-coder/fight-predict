@@ -4,16 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-  
     "start": "next start",
     "lint": "eslint",
-       "build": "prisma migrate deploy && next build",
+    "build": "prisma migrate deploy && next build",
     "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "@telegram-apps/sdk-react": "^3.3.9",
+    "cloudinary": "^2.10.0",
     "next": "16.3.0",
     "pg": "^8.23.0",
     "react": "19.2.8",

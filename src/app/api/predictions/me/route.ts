@@ -3,34 +3,78 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateTelegramInitData } from "@/lib/telegram-auth";
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+) {
   try {
-    const initData = request.headers.get(
-      "x-telegram-init-data",
-    );
+    // ---------------------------------------------
+    // Get Telegram initData
+    // ---------------------------------------------
 
-    if (!initData) {
+    const initData =
+      request.headers.get(
+        "x-telegram-init-data",
+      );
+
+    if (
+      !initData ||
+      typeof initData !== "string"
+    ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Telegram authentication is required",
+          error:
+            "Telegram authentication is required",
         },
-        { status: 401 },
+        {
+          status: 401,
+        },
       );
     }
 
-    const telegram = validateTelegramInitData(initData);
+    // ---------------------------------------------
+    // Validate Telegram authentication
+    // ---------------------------------------------
 
-    const telegramId = String(telegram.user.id);
+    const telegramUser =
+      validateTelegramInitData(
+        initData,
+      );
 
-    const user = await prisma.user.findUnique({
-      where: {
-        telegramId,
-      },
-      select: {
-        id: true,
-      },
-    });
+    if (!telegramUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Invalid Telegram authentication",
+        },
+        {
+          status: 401,
+        },
+      );
+    }
+
+    // ---------------------------------------------
+    // Get Telegram ID
+    // ---------------------------------------------
+
+    const telegramId =
+      String(telegramUser.id);
+
+    // ---------------------------------------------
+    // Find user
+    // ---------------------------------------------
+
+    const user =
+      await prisma.user.findUnique({
+        where: {
+          telegramId,
+        },
+
+        select: {
+          id: true,
+        },
+      });
 
     if (!user) {
       return NextResponse.json(
@@ -38,9 +82,15 @@ export async function GET(request: NextRequest) {
           success: false,
           error: "User not found",
         },
-        { status: 404 },
+        {
+          status: 404,
+        },
       );
     }
+
+    // ---------------------------------------------
+    // Get prediction history
+    // ---------------------------------------------
 
     const predictions =
       await prisma.prediction.findMany({
@@ -52,12 +102,21 @@ export async function GET(request: NextRequest) {
           fight: {
             select: {
               id: true,
+
               title: true,
+
               fighterAName: true,
+
               fighterBName: true,
+
               fighterAProbability: true,
+
               fighterBProbability: true,
+
+              winner: true,
+
               status: true,
+
               scheduledAt: true,
             },
           },
@@ -70,10 +129,20 @@ export async function GET(request: NextRequest) {
         take: 50,
       });
 
-    return NextResponse.json({
-      success: true,
-      data: predictions,
-    });
+    // ---------------------------------------------
+    // Return prediction history
+    // ---------------------------------------------
+
+    return NextResponse.json(
+      {
+        success: true,
+
+        data: predictions,
+      },
+      {
+        status: 200,
+      },
+    );
   } catch (error) {
     console.error(
       "Prediction history error:",
@@ -83,9 +152,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to load prediction history",
+
+        error:
+          "Failed to load prediction history",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }

@@ -1,19 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
-import {
-  validateTelegramInitData,
-} from "@/lib/telegram-auth";
+
+import { validateTelegramInitData } from "@/lib/telegram-auth";
 
 export async function POST(
   request: NextRequest,
 ) {
   try {
+    // ---------------------------------------------
+    // Read request body
+    // ---------------------------------------------
+
     const body =
       await request.json();
 
     const initData =
       body?.initData;
+
+    // ---------------------------------------------
+    // Validate initData
+    // ---------------------------------------------
 
     if (
       typeof initData !== "string" ||
@@ -22,6 +29,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
+
           error:
             "Telegram initData is required",
         },
@@ -31,50 +39,84 @@ export async function POST(
       );
     }
 
-    const telegram =
+    // ---------------------------------------------
+    // Validate Telegram authentication
+    // ---------------------------------------------
+
+    const telegramUser =
       validateTelegramInitData(
         initData,
       );
 
-    const telegramUser =
-      telegram.user;
+    if (!telegramUser) {
+      return NextResponse.json(
+        {
+          success: false,
+
+          error:
+            "Invalid Telegram authentication",
+        },
+        {
+          status: 401,
+        },
+      );
+    }
+
+    // ---------------------------------------------
+    // Create or update user
+    // ---------------------------------------------
+
+    const telegramId =
+      String(telegramUser.id);
 
     const user =
       await prisma.user.upsert({
         where: {
-          telegramId:
-            String(telegramUser.id),
+          telegramId,
         },
+
+        // -----------------------------------------
+        // Existing user
+        // -----------------------------------------
 
         update: {
           username:
-            telegramUser.username,
+            telegramUser.username ??
+            null,
 
           firstName:
             telegramUser.first_name,
 
           lastName:
-            telegramUser.last_name,
+            telegramUser.last_name ??
+            null,
 
           photoUrl:
-            telegramUser.photo_url,
+            telegramUser.photo_url ??
+            null,
         },
 
+        // -----------------------------------------
+        // New user
+        // -----------------------------------------
+
         create: {
-          telegramId:
-            String(telegramUser.id),
+          telegramId,
 
           username:
-            telegramUser.username,
+            telegramUser.username ??
+            null,
 
           firstName:
             telegramUser.first_name,
 
           lastName:
-            telegramUser.last_name,
+            telegramUser.last_name ??
+            null,
 
           photoUrl:
-            telegramUser.photo_url,
+            telegramUser.photo_url ??
+            null,
 
           balance: 1000,
 
@@ -92,36 +134,45 @@ export async function POST(
         },
       });
 
-    return NextResponse.json({
-      success: true,
+    // ---------------------------------------------
+    // Return user
+    // ---------------------------------------------
 
-      data: {
-        user: {
-          id: user.id,
+    return NextResponse.json(
+      {
+        success: true,
 
-          telegramId:
-            user.telegramId,
+        data: {
+          user: {
+            id: user.id,
 
-          username:
-            user.username,
+            telegramId:
+              user.telegramId,
 
-          firstName:
-            user.firstName,
+            username:
+              user.username,
 
-          lastName:
-            user.lastName,
+            firstName:
+              user.firstName,
 
-          photoUrl:
-            user.photoUrl,
+            lastName:
+              user.lastName,
 
-          balance:
-            user.balance,
+            photoUrl:
+              user.photoUrl,
 
-          role:
-            user.role,
+            balance:
+              user.balance,
+
+            role:
+              user.role,
+          },
         },
       },
-    });
+      {
+        status: 200,
+      },
+    );
   } catch (error) {
     console.error(
       "Telegram authentication error:",
@@ -131,13 +182,14 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
+
         error:
           error instanceof Error
             ? error.message
             : "Telegram authentication failed",
       },
       {
-        status: 401,
+        status: 500,
       },
     );
   }

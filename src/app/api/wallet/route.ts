@@ -1,70 +1,108 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+
 import { validateTelegramInitData } from "@/lib/telegram-auth";
 
-export async function GET(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+) {
   try {
-    const initData = request.headers.get(
-      "x-telegram-init-data",
-    );
+    const body = await request.json();
+
+    const initData = body.initData;
 
     if (!initData) {
       return NextResponse.json(
         {
-          success: false,
-          error: "Telegram authentication is required",
+          error: "Telegram authentication required",
         },
-        { status: 401 },
+        {
+          status: 401,
+        },
       );
     }
 
-    const telegram = validateTelegramInitData(initData);
+    const telegramUser =
+      validateTelegramInitData(initData);
 
-    const telegramId = String(telegram.user.id);
-
-    const user = await prisma.user.findUnique({
-      where: {
-        telegramId,
-      },
-      select: {
-        id: true,
-        balance: true,
-        transactions: {
-          orderBy: {
-            createdAt: "desc",
-          },
-          take: 50,
+    if (!telegramUser) {
+      return NextResponse.json(
+        {
+          error: "Invalid Telegram authentication",
         },
-      },
-    });
+        {
+          status: 401,
+        },
+      );
+    }
+
+    const user =
+      await prisma.user.findUnique({
+        where: {
+          telegramId: String(
+            telegramUser.id,
+          ),
+        },
+      });
 
     if (!user) {
       return NextResponse.json(
         {
-          success: false,
           error: "User not found",
         },
-        { status: 404 },
+        {
+          status: 404,
+        },
       );
     }
 
+    const deposits =
+      await prisma.deposit.findMany({
+        where: {
+          userId: user.id,
+        },
+
+        orderBy: {
+          createdAt: "desc",
+        },
+
+        take: 50,
+      });
+
+    const transactions =
+      await prisma.transaction.findMany({
+        where: {
+          userId: user.id,
+        },
+
+        orderBy: {
+          createdAt: "desc",
+        },
+
+        take: 50,
+      });
+
     return NextResponse.json({
-      success: true,
       data: {
         balance: user.balance,
-        transactions: user.transactions,
+        deposits,
+        transactions,
       },
     });
   } catch (error) {
-    console.error("Wallet error:", error);
+    console.error(
+      "Wallet error:",
+      error,
+    );
 
     return NextResponse.json(
       {
-        success: false,
         error: "Failed to load wallet",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }

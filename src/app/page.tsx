@@ -600,6 +600,7 @@ export default function HomePage() {
             >
               Wallet
             </a>
+            
           </div>
         </section>
 

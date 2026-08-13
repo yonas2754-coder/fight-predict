@@ -4,17 +4,44 @@ import { validateTelegramInitData } from "@/lib/telegram-auth";
 export async function getAdminFromInitData(
   initData: string,
 ) {
-  if (!initData) {
+  // ---------------------------------------------
+  // Check initData
+  // ---------------------------------------------
+
+  if (
+    !initData ||
+    typeof initData !== "string"
+  ) {
     throw new Error(
       "Telegram authentication is required",
     );
   }
 
-  const telegram =
-    validateTelegramInitData(initData);
+  // ---------------------------------------------
+  // Validate Telegram authentication
+  // ---------------------------------------------
+
+  const telegramUser =
+    validateTelegramInitData(
+      initData,
+    );
+
+  if (!telegramUser) {
+    throw new Error(
+      "Invalid Telegram authentication",
+    );
+  }
+
+  // ---------------------------------------------
+  // Get Telegram ID
+  // ---------------------------------------------
 
   const telegramId =
-    String(telegram.user.id);
+    String(telegramUser.id);
+
+  // ---------------------------------------------
+  // Find user
+  // ---------------------------------------------
 
   const user =
     await prisma.user.findUnique({
@@ -29,11 +56,19 @@ export async function getAdminFromInitData(
     );
   }
 
+  // ---------------------------------------------
+  // Check admin role
+  // ---------------------------------------------
+
   if (user.role !== "ADMIN") {
     throw new Error(
       "Admin access required",
     );
   }
+
+  // ---------------------------------------------
+  // Return admin
+  // ---------------------------------------------
 
   return user;
 }

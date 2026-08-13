@@ -3,8 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateTelegramInitData } from "@/lib/telegram-auth";
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+) {
   try {
+    // ---------------------------------------------
+    // Read request body
+    // ---------------------------------------------
+
     const body = await request.json();
 
     const {
@@ -14,6 +20,10 @@ export async function POST(request: NextRequest) {
       amount,
     } = body;
 
+    // ---------------------------------------------
+    // Validate Telegram authentication
+    // ---------------------------------------------
+
     if (
       typeof initData !== "string" ||
       !initData
@@ -21,13 +31,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Telegram authentication is required",
+          error:
+            "Telegram authentication is required",
         },
         {
           status: 401,
         },
       );
     }
+
+    const telegramUser =
+      validateTelegramInitData(
+        initData,
+      );
+
+    if (!telegramUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Invalid Telegram authentication",
+        },
+        {
+          status: 401,
+        },
+      );
+    }
+
+    // ---------------------------------------------
+    // Validate fight ID
+    // ---------------------------------------------
 
     if (
       typeof fightId !== "string" ||
@@ -36,7 +69,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Fight ID is required",
+          error:
+            "Fight ID is required",
         },
         {
           status: 400,
@@ -44,20 +78,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ---------------------------------------------
+    // Validate fighter
+    // ---------------------------------------------
+
     if (
-      selectedFighter !== "Sedo" &&
-      selectedFighter !== "Johnny"
+      typeof selectedFighter !== "string" ||
+      !selectedFighter
     ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid fighter",
+          error:
+            "Fighter selection is required",
         },
         {
           status: 400,
         },
       );
     }
+
+    // ---------------------------------------------
+    // Validate amount
+    // ---------------------------------------------
 
     if (
       typeof amount !== "number" ||
@@ -67,7 +110,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid prediction amount",
+          error:
+            "Invalid prediction amount",
         },
         {
           status: 400,
@@ -75,19 +119,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const telegram = validateTelegramInitData(
-      initData,
-    );
+    // ---------------------------------------------
+    // Find user
+    // ---------------------------------------------
 
-    const telegramId = String(
-      telegram.user.id,
-    );
+    const telegramId =
+      String(telegramUser.id);
 
-    const user = await prisma.user.findUnique({
-      where: {
-        telegramId,
-      },
-    });
+    const user =
+      await prisma.user.findUnique({
+        where: {
+          telegramId,
+        },
+      });
 
     if (!user) {
       return NextResponse.json(
@@ -101,11 +145,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const fight = await prisma.fight.findUnique({
-      where: {
-        id: fightId,
-      },
-    });
+    // ---------------------------------------------
+    // Find fight
+    // ---------------------------------------------
+
+    const fight =
+      await prisma.fight.findUnique({
+        where: {
+          id: fightId,
+        },
+      });
 
     if (!fight) {
       return NextResponse.json(
@@ -119,23 +168,87 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ---------------------------------------------
+    // Check fight status
+    // ---------------------------------------------
+
     if (fight.status !== "UPCOMING") {
       return NextResponse.json(
         {
           success: false,
-          error: "Predictions are closed",
+          error:
+            "Predictions are closed",
         },
         {
           status: 400,
         },
       );
     }
+
+    // ---------------------------------------------
+    // Check fighter
+    // ---------------------------------------------
+
+    let probability: number;
+
+    if (
+      selectedFighter ===
+      fight.fighterAName
+    ) {
+      probability =
+        fight.fighterAProbability;
+    } else if (
+      selectedFighter ===
+      fight.fighterBName
+    ) {
+      probability =
+        fight.fighterBProbability;
+    } else {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Selected fighter does not belong to this fight",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    // ---------------------------------------------
+    // Validate probability
+    // ---------------------------------------------
+
+    if (
+      !Number.isInteger(
+        probability,
+      ) ||
+      probability <= 0 ||
+      probability > 100
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Invalid fighter probability",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    // ---------------------------------------------
+    // Check balance
+    // ---------------------------------------------
 
     if (amount > user.balance) {
       return NextResponse.json(
         {
           success: false,
-          error: "Insufficient balance",
+          error:
+            "Insufficient balance",
         },
         {
           status: 400,
@@ -143,71 +256,93 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const probability =
-      selectedFighter === fight.fighterAName
-        ? fight.fighterAProbability
-        : fight.fighterBProbability;
+    // ---------------------------------------------
+    // Calculate potential winnings
+    // ---------------------------------------------
 
-    const potentialWin = Math.floor(
-      (amount * 100) / probability,
-    );
+    const potentialWin =
+      Math.floor(
+        (amount * 100) /
+          probability,
+      );
+
+    // ---------------------------------------------
+    // Create prediction transaction
+    // ---------------------------------------------
 
     const prediction =
-      await prisma.$transaction(async (tx) => {
-        const updatedUser =
-          await tx.user.updateMany({
-            where: {
-              id: user.id,
-              balance: {
-                gte: amount,
+      await prisma.$transaction(
+        async (tx) => {
+          // Re-check balance inside
+          // transaction to prevent
+          // concurrent bets.
+
+          const updatedUser =
+            await tx.user.updateMany({
+              where: {
+                id: user.id,
+
+                balance: {
+                  gte: amount,
+                },
               },
-            },
 
-            data: {
-              balance: {
-                decrement: amount,
+              data: {
+                balance: {
+                  decrement: amount,
+                },
               },
-            },
-          });
+            });
 
-        if (updatedUser.count !== 1) {
-          throw new Error(
-            "Insufficient balance",
-          );
-        }
+          if (
+            updatedUser.count !== 1
+          ) {
+            throw new Error(
+              "INSUFFICIENT_BALANCE",
+            );
+          }
 
-        const newPrediction =
-          await tx.prediction.create({
+          // Create prediction
+
+          const newPrediction =
+            await tx.prediction.create({
+              data: {
+                userId: user.id,
+
+                fightId: fight.id,
+
+                selectedFighter,
+
+                amount,
+
+                potentialWin,
+
+                status: "PENDING",
+              },
+            });
+
+          // Create wallet transaction
+
+          await tx.transaction.create({
             data: {
               userId: user.id,
 
-              fightId: fight.id,
+              type: "PREDICTION",
 
-              selectedFighter,
+              amount: -amount,
 
-              amount,
-
-              potentialWin,
-
-              status: "PENDING",
+              description:
+                `Prediction on ${selectedFighter}`,
             },
           });
 
-        await tx.transaction.create({
-          data: {
-            userId: user.id,
+          return newPrediction;
+        },
+      );
 
-            type: "PREDICTION",
-
-            amount: -amount,
-
-            description:
-              `Prediction on ${selectedFighter}`,
-          },
-        });
-
-        return newPrediction;
-      });
+    // ---------------------------------------------
+    // Get updated balance
+    // ---------------------------------------------
 
     const updatedUser =
       await prisma.user.findUnique({
@@ -220,6 +355,10 @@ export async function POST(request: NextRequest) {
         },
       });
 
+    // ---------------------------------------------
+    // Return response
+    // ---------------------------------------------
+
     return NextResponse.json(
       {
         success: true,
@@ -228,7 +367,8 @@ export async function POST(request: NextRequest) {
           prediction,
 
           balance:
-            updatedUser?.balance ?? 0,
+            updatedUser?.balance ??
+            0,
         },
       },
       {
@@ -241,9 +381,35 @@ export async function POST(request: NextRequest) {
       error,
     );
 
+    // ---------------------------------------------
+    // Insufficient balance
+    // ---------------------------------------------
+
+    if (
+      error instanceof Error &&
+      error.message ===
+        "INSUFFICIENT_BALANCE"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Insufficient balance",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    // ---------------------------------------------
+    // General error
+    // ---------------------------------------------
+
     return NextResponse.json(
       {
         success: false,
+
         error:
           error instanceof Error
             ? error.message
