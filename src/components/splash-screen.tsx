@@ -22,7 +22,7 @@ export default function SplashScreen() {
   return (
     <div className="fixed inset-0 z-[9999] flex min-h-screen items-center justify-center bg-black">
       <Image
-        src="/images/splash.png"
+        src="/images/splash.jpeg"
         alt="Fight Predict"
         fill
         priority
