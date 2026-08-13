@@ -557,7 +557,7 @@ export default function HomePage() {
           </p>
 
           <p className="mt-2 text-sm text-black/50">
-            points on a successful prediction.
+            birr on a successful prediction.
           </p>
 
           <div className="mt-5 flex gap-2">
