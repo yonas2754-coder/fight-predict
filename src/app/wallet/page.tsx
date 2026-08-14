@@ -47,9 +47,9 @@ export default function WalletPage() {
   const [copied, setCopied] = useState(false);
 
   // Configurable Admin Details
-  const ADMIN_TELEBIRR_NO = "0930327375";
+  const ADMIN_TELEBIRR_NO = "0912285791";
   const ADMIN_FAYDA_ID = "1029 3847 5612"; 
-  const ADMIN_NAME = "Yonas";
+  const ADMIN_NAME = "TAFESE";
 
   useEffect(() => {
     if (!loading && user) {
