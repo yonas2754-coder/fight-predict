@@ -14,20 +14,23 @@ export async function POST(
 ) {
   try {
     /*
-     * Get request body
+     * Read FormData
      */
 
-    const body =
-      await request.json();
+    const formData =
+      await request.formData();
 
-    const {
-      initData,
-      message,
-      imageUrl,
-    } = body;
+    const initData =
+      formData.get("initData");
+
+    const message =
+      formData.get("message");
+
+    const image =
+      formData.get("image");
 
     /*
-     * Validate Telegram authentication
+     * Validate initData
      */
 
     if (
@@ -65,28 +68,21 @@ export async function POST(
     }
 
     /*
-     * Validate image URL
-     * Image is optional
+     * Validate image
      */
 
+    let imageFile: File | null =
+      null;
+
     if (
-      imageUrl !== null &&
-      imageUrl !== undefined &&
-      typeof imageUrl !== "string"
+      image instanceof File &&
+      image.size > 0
     ) {
-      return NextResponse.json(
-        {
-          error:
-            "Invalid image URL",
-        },
-        {
-          status: 400,
-        },
-      );
+      imageFile = image;
     }
 
     /*
-     * Validate Telegram user
+     * Validate Telegram authentication
      */
 
     const authResult =
@@ -106,15 +102,11 @@ export async function POST(
       );
     }
 
-    /*
-     * Telegram user
-     */
-
     const telegramUser =
       authResult;
 
     /*
-     * Find admin in database
+     * Find admin
      */
 
     const admin =
@@ -125,10 +117,6 @@ export async function POST(
           ),
         },
       });
-
-    /*
-     * Admin doesn't exist
-     */
 
     if (!admin) {
       return NextResponse.json(
@@ -161,7 +149,7 @@ export async function POST(
     }
 
     /*
-     * Check bot token
+     * Telegram bot token
      */
 
     const botToken =
@@ -190,21 +178,8 @@ export async function POST(
         },
       });
 
-    /*
-     * Counters
-     */
-
     let sent = 0;
     let failed = 0;
-
-    /*
-     * Clean image URL
-     */
-
-    const cleanImageUrl =
-      typeof imageUrl === "string"
-        ? imageUrl.trim()
-        : "";
 
     /*
      * Send to every user
@@ -218,28 +193,33 @@ export async function POST(
          * IMAGE + MESSAGE
          */
 
-        if (cleanImageUrl) {
+        if (imageFile) {
+          const telegramForm =
+            new FormData();
+
+          telegramForm.append(
+            "chat_id",
+            user.telegramId,
+          );
+
+          telegramForm.append(
+            "caption",
+            message.trim(),
+          );
+
+          telegramForm.append(
+            "photo",
+            imageFile,
+            imageFile.name,
+          );
+
           response =
             await fetch(
               `https://api.telegram.org/bot${botToken}/sendPhoto`,
               {
                 method: "POST",
 
-                headers: {
-                  "Content-Type":
-                    "application/json",
-                },
-
-                body: JSON.stringify({
-                  chat_id:
-                    user.telegramId,
-
-                  photo:
-                    cleanImageUrl,
-
-                  caption:
-                    message.trim(),
-                }),
+                body: telegramForm,
               },
             );
         }
@@ -272,7 +252,7 @@ export async function POST(
         }
 
         /*
-         * Check Telegram response
+         * Check result
          */
 
         if (response.ok) {
@@ -280,7 +260,7 @@ export async function POST(
         } else {
           failed++;
 
-          const errorData =
+          const telegramError =
             await response
               .json()
               .catch(
@@ -288,15 +268,15 @@ export async function POST(
               );
 
           console.error(
-            `Telegram broadcast failed for ${user.telegramId}:`,
-            errorData,
+            `Telegram failed for ${user.telegramId}:`,
+            telegramError,
           );
         }
       } catch (error) {
         failed++;
 
         console.error(
-          `Failed to send broadcast to ${user.telegramId}`,
+          `Failed to send to ${user.telegramId}:`,
           error,
         );
       }

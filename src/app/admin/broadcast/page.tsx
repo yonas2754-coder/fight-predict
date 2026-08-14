@@ -17,7 +17,10 @@ export default function BroadcastPage() {
   const [message, setMessage] =
     useState("");
 
-  const [imageUrl, setImageUrl] =
+  const [image, setImage] =
+    useState<File | null>(null);
+
+  const [preview, setPreview] =
     useState("");
 
   const [sending, setSending] =
@@ -28,6 +31,49 @@ export default function BroadcastPage() {
 
   const [error, setError] =
     useState("");
+
+  function handleImageChange(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file =
+      event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setError(
+        "Please select an image file.",
+      );
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError(
+        "Image must be smaller than 10MB.",
+      );
+      return;
+    }
+
+    setError("");
+
+    setImage(file);
+
+    setPreview(
+      URL.createObjectURL(file),
+    );
+  }
+
+  function removeImage() {
+    setImage(null);
+
+    if (preview) {
+      URL.revokeObjectURL(preview);
+    }
+
+    setPreview("");
+  }
 
   async function sendBroadcast(
     event: FormEvent<HTMLFormElement>,
@@ -47,27 +93,37 @@ export default function BroadcastPage() {
     try {
       setSending(true);
 
+      /*
+       * FormData allows us to send
+       * both text and an actual image file.
+       */
+
+      const formData =
+        new FormData();
+
+      formData.append(
+        "initData",
+        initData,
+      );
+
+      formData.append(
+        "message",
+        message.trim(),
+      );
+
+      if (image) {
+        formData.append(
+          "image",
+          image,
+        );
+      }
+
       const response =
         await fetch(
           "/api/admin/broadcast",
           {
             method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body: JSON.stringify({
-              initData,
-
-              message:
-                message.trim(),
-
-              imageUrl:
-                imageUrl.trim() ||
-                null,
-            }),
+            body: formData,
           },
         );
 
@@ -86,7 +142,7 @@ export default function BroadcastPage() {
       );
 
       setMessage("");
-      setImageUrl("");
+      removeImage();
     } catch (err) {
       console.error(
         "Broadcast error:",
@@ -126,16 +182,12 @@ export default function BroadcastPage() {
     <main className="min-h-screen bg-black px-5 py-6 text-white">
       <div className="mx-auto max-w-md">
 
-        {/* BACK */}
-
         <a
           href="/admin"
           className="text-sm text-white/50 transition hover:text-white"
         >
           ← Admin Panel
         </a>
-
-        {/* TITLE */}
 
         <h1 className="mt-5 text-3xl font-black">
           📢 Broadcast Message
@@ -144,7 +196,7 @@ export default function BroadcastPage() {
         <p className="mt-2 text-sm text-white/50">
           Send a message and optional
           image directly from your
-          Telegram bot to all users.
+          Telegram bot.
         </p>
 
         {/* ERROR */}
@@ -163,36 +215,78 @@ export default function BroadcastPage() {
           </div>
         )}
 
-        {/* FORM */}
-
         <form
           onSubmit={sendBroadcast}
           className="mt-6 space-y-5"
         >
 
-          {/* IMAGE */}
+          {/* IMAGE UPLOAD */}
 
           <div>
             <label className="text-sm font-bold text-white/70">
-              🖼️ Image URL
+              🖼️ Image
             </label>
 
-            <input
-              type="url"
-              value={imageUrl}
-              onChange={(event) =>
-                setImageUrl(
-                  event.target.value,
-                )
-              }
-              placeholder="https://example.com/fight.jpg"
-              className="mt-2 w-full rounded-2xl border border-white/10 bg-white/10 p-4 text-white outline-none transition focus:border-white/30 placeholder:text-white/30"
-            />
+            {!image ? (
+              <label className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-white/20 bg-white/5 p-8 transition hover:bg-white/10">
+                <span className="text-4xl">
+                  📷
+                </span>
 
-            <p className="mt-2 text-xs text-white/30">
-              Optional. Leave empty to send
-              text only.
-            </p>
+                <span className="mt-3 text-sm font-bold">
+                  Select Image
+                </span>
+
+                <span className="mt-1 text-xs text-white/40">
+                  PNG, JPG, WEBP · Max 10MB
+                </span>
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={
+                    handleImageChange
+                  }
+                  className="hidden"
+                />
+              </label>
+            ) : (
+              <div className="mt-2 overflow-hidden rounded-3xl border border-white/10 bg-white/5">
+
+                <img
+                  src={preview}
+                  alt="Selected image"
+                  className="max-h-72 w-full object-cover"
+                />
+
+                <div className="flex items-center justify-between p-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold">
+                      {image.name}
+                    </p>
+
+                    <p className="text-xs text-white/40">
+                      {(
+                        image.size /
+                        1024 /
+                        1024
+                      ).toFixed(2)}{" "}
+                      MB
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={
+                      removeImage
+                    }
+                    className="ml-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* MESSAGE */}
@@ -223,17 +317,11 @@ export default function BroadcastPage() {
               PREVIEW
             </p>
 
-            {imageUrl.trim() && (
+            {preview && (
               <img
-                src={imageUrl}
-                alt="Broadcast preview"
+                src={preview}
+                alt="Preview"
                 className="mt-3 max-h-64 w-full rounded-2xl object-cover"
-                onError={(
-                  event,
-                ) => {
-                  event.currentTarget.style.display =
-                    "none";
-                }}
               />
             )}
 
