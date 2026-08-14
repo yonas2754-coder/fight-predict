@@ -9,16 +9,12 @@ import {
   validateTelegramInitData,
 } from "@/lib/telegram-auth";
 
-export const runtime = "nodejs";
-
 export async function POST(
   request: NextRequest,
 ) {
   try {
-    console.log("Broadcast API started");
-
     /*
-     * Read multipart/form-data
+     * Read FormData
      */
 
     const formData =
@@ -33,10 +29,6 @@ export async function POST(
     const image =
       formData.get("image");
 
-    console.log("Has initData:", !!initData);
-    console.log("Has message:", !!message);
-    console.log("Has image:", image instanceof File);
-
     /*
      * Validate initData
      */
@@ -50,7 +42,9 @@ export async function POST(
           error:
             "Telegram authentication required",
         },
-        { status: 401 },
+        {
+          status: 401,
+        },
       );
     }
 
@@ -64,30 +58,52 @@ export async function POST(
     ) {
       return NextResponse.json(
         {
-          error: "Message is required",
+          error:
+            "Message is required",
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
     /*
-     * Validate Telegram user
+     * Validate image
      */
 
-    const telegramUser =
+    let imageFile: File | null =
+      null;
+
+    if (
+      image instanceof File &&
+      image.size > 0
+    ) {
+      imageFile = image;
+    }
+
+    /*
+     * Validate Telegram authentication
+     */
+
+    const authResult =
       validateTelegramInitData(
         initData,
       );
 
-    if (!telegramUser) {
+    if (!authResult) {
       return NextResponse.json(
         {
           error:
             "Invalid Telegram authentication",
         },
-        { status: 401 },
+        {
+          status: 401,
+        },
       );
     }
+
+    const telegramUser =
+      authResult;
 
     /*
      * Find admin
@@ -105,9 +121,12 @@ export async function POST(
     if (!admin) {
       return NextResponse.json(
         {
-          error: "Admin not found",
+          error:
+            "Admin not found",
         },
-        { status: 404 },
+        {
+          status: 404,
+        },
       );
     }
 
@@ -115,18 +134,22 @@ export async function POST(
      * Check admin role
      */
 
-    if (admin.role !== "ADMIN") {
+    if (
+      admin.role !== "ADMIN"
+    ) {
       return NextResponse.json(
         {
           error:
             "Admin access required",
         },
-        { status: 403 },
+        {
+          status: 403,
+        },
       );
     }
 
     /*
-     * Bot token
+     * Telegram bot token
      */
 
     const botToken =
@@ -136,14 +159,16 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "TELEGRAM_BOT_TOKEN is missing",
+            "TELEGRAM_BOT_TOKEN is not configured",
         },
-        { status: 500 },
+        {
+          status: 500,
+        },
       );
     }
 
     /*
-     * Get users
+     * Get all users
      */
 
     const users =
@@ -157,22 +182,12 @@ export async function POST(
     let failed = 0;
 
     /*
-     * Check image
-     */
-
-    const imageFile =
-      image instanceof File &&
-      image.size > 0
-        ? image
-        : null;
-
-    /*
-     * Send messages
+     * Send to every user
      */
 
     for (const user of users) {
       try {
-        let telegramResponse;
+        let response: Response;
 
         /*
          * IMAGE + MESSAGE
@@ -184,7 +199,7 @@ export async function POST(
 
           telegramForm.append(
             "chat_id",
-            String(user.telegramId),
+            user.telegramId,
           );
 
           telegramForm.append(
@@ -195,13 +210,15 @@ export async function POST(
           telegramForm.append(
             "photo",
             imageFile,
+            imageFile.name,
           );
 
-          telegramResponse =
+          response =
             await fetch(
               `https://api.telegram.org/bot${botToken}/sendPhoto`,
               {
                 method: "POST",
+
                 body: telegramForm,
               },
             );
@@ -212,7 +229,7 @@ export async function POST(
          */
 
         else {
-          telegramResponse =
+          response =
             await fetch(
               `https://api.telegram.org/bot${botToken}/sendMessage`,
               {
@@ -225,9 +242,7 @@ export async function POST(
 
                 body: JSON.stringify({
                   chat_id:
-                    String(
-                      user.telegramId,
-                    ),
+                    user.telegramId,
 
                   text:
                     message.trim(),
@@ -236,46 +251,56 @@ export async function POST(
             );
         }
 
-        const telegramResult =
-          await telegramResponse
-            .json()
-            .catch(() => null);
+        /*
+         * Check result
+         */
 
-        if (
-          telegramResponse.ok &&
-          telegramResult?.ok
-        ) {
+        if (response.ok) {
           sent++;
         } else {
           failed++;
 
+          const telegramError =
+            await response
+              .json()
+              .catch(
+                () => null,
+              );
+
           console.error(
-            "Telegram error:",
-            telegramResult,
+            `Telegram failed for ${user.telegramId}:`,
+            telegramError,
           );
         }
       } catch (error) {
         failed++;
 
         console.error(
-          `Failed for ${user.telegramId}:`,
+          `Failed to send to ${user.telegramId}:`,
           error,
         );
       }
     }
 
+    /*
+     * Return result
+     */
+
     return NextResponse.json({
       success: true,
 
       data: {
-        total: users.length,
+        total:
+          users.length,
+
         sent,
+
         failed,
       },
     });
   } catch (error) {
     console.error(
-      "Broadcast API error:",
+      "Broadcast error:",
       error,
     );
 
@@ -286,7 +311,7 @@ export async function POST(
         error:
           error instanceof Error
             ? error.message
-            : "Broadcast failed",
+            : "Failed to send broadcast",
       },
       {
         status: 500,
