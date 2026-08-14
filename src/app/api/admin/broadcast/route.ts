@@ -13,13 +13,22 @@ export async function POST(
   request: NextRequest,
 ) {
   try {
+    /*
+     * Get request body
+     */
+
     const body =
       await request.json();
 
     const {
       initData,
       message,
+      imageUrl,
     } = body;
+
+    /*
+     * Validate Telegram authentication
+     */
 
     if (
       typeof initData !== "string" ||
@@ -36,6 +45,10 @@ export async function POST(
       );
     }
 
+    /*
+     * Validate message
+     */
+
     if (
       typeof message !== "string" ||
       !message.trim()
@@ -44,6 +57,27 @@ export async function POST(
         {
           error:
             "Message is required",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    /*
+     * Validate image URL
+     * Image is optional
+     */
+
+    if (
+      imageUrl !== null &&
+      imageUrl !== undefined &&
+      typeof imageUrl !== "string"
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid image URL",
         },
         {
           status: 400,
@@ -73,16 +107,14 @@ export async function POST(
     }
 
     /*
-     * IMPORTANT:
-     * Your current validation function
-     * returns TelegramUser directly.
+     * Telegram user
      */
 
     const telegramUser =
       authResult;
 
     /*
-     * Find admin
+     * Find admin in database
      */
 
     const admin =
@@ -93,6 +125,10 @@ export async function POST(
           ),
         },
       });
+
+    /*
+     * Admin doesn't exist
+     */
 
     if (!admin) {
       return NextResponse.json(
@@ -106,7 +142,13 @@ export async function POST(
       );
     }
 
-    if (admin.role !== "ADMIN") {
+    /*
+     * Check admin role
+     */
+
+    if (
+      admin.role !== "ADMIN"
+    ) {
       return NextResponse.json(
         {
           error:
@@ -114,6 +156,25 @@ export async function POST(
         },
         {
           status: 403,
+        },
+      );
+    }
+
+    /*
+     * Check bot token
+     */
+
+    const botToken =
+      process.env.TELEGRAM_BOT_TOKEN;
+
+    if (!botToken) {
+      return NextResponse.json(
+        {
+          error:
+            "TELEGRAM_BOT_TOKEN is not configured",
+        },
+        {
+          status: 500,
         },
       );
     }
@@ -129,50 +190,121 @@ export async function POST(
         },
       });
 
+    /*
+     * Counters
+     */
+
     let sent = 0;
     let failed = 0;
 
     /*
-     * Send Telegram message
+     * Clean image URL
+     */
+
+    const cleanImageUrl =
+      typeof imageUrl === "string"
+        ? imageUrl.trim()
+        : "";
+
+    /*
+     * Send to every user
      */
 
     for (const user of users) {
       try {
-        const response =
-          await fetch(
-            `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
-            {
-              method: "POST",
+        let response: Response;
 
-              headers: {
-                "Content-Type":
-                  "application/json",
+        /*
+         * IMAGE + MESSAGE
+         */
+
+        if (cleanImageUrl) {
+          response =
+            await fetch(
+              `https://api.telegram.org/bot${botToken}/sendPhoto`,
+              {
+                method: "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+
+                body: JSON.stringify({
+                  chat_id:
+                    user.telegramId,
+
+                  photo:
+                    cleanImageUrl,
+
+                  caption:
+                    message.trim(),
+                }),
               },
+            );
+        }
 
-              body: JSON.stringify({
-                chat_id:
-                  user.telegramId,
+        /*
+         * TEXT ONLY
+         */
 
-                text:
-                  message.trim(),
-              }),
-            },
-          );
+        else {
+          response =
+            await fetch(
+              `https://api.telegram.org/bot${botToken}/sendMessage`,
+              {
+                method: "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+
+                body: JSON.stringify({
+                  chat_id:
+                    user.telegramId,
+
+                  text:
+                    message.trim(),
+                }),
+              },
+            );
+        }
+
+        /*
+         * Check Telegram response
+         */
 
         if (response.ok) {
           sent++;
         } else {
           failed++;
+
+          const errorData =
+            await response
+              .json()
+              .catch(
+                () => null,
+              );
+
+          console.error(
+            `Telegram broadcast failed for ${user.telegramId}:`,
+            errorData,
+          );
         }
       } catch (error) {
+        failed++;
+
         console.error(
-          `Failed to send message to ${user.telegramId}`,
+          `Failed to send broadcast to ${user.telegramId}`,
           error,
         );
-
-        failed++;
       }
     }
+
+    /*
+     * Return result
+     */
 
     return NextResponse.json({
       success: true,
