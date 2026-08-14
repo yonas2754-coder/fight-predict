@@ -61,6 +61,9 @@ export default function AdminPage() {
         </header>
 
         <div className="mt-6 grid gap-4">
+
+          {/* DEPOSITS */}
+
           <a
             href="/admin/deposits"
             className="rounded-3xl bg-white p-6 text-black"
@@ -83,12 +86,39 @@ export default function AdminPage() {
             </div>
           </a>
 
+          {/* BROADCAST */}
+
+          <a
+            href="/admin/broadcast"
+            className="rounded-3xl bg-blue-500 p-6 text-white"
+          >
+            <div className="text-4xl">
+              📢
+            </div>
+
+            <h2 className="mt-4 text-xl font-black">
+              Send Message
+            </h2>
+
+            <p className="mt-1 text-sm text-white/70">
+              Send a message from the Telegram
+              bot to all users.
+            </p>
+
+            <div className="mt-5 font-black">
+              Broadcast →
+            </div>
+          </a>
+
+          {/* HOME */}
+
           <a
             href="/"
             className="rounded-2xl bg-white/10 p-5"
           >
-            ← Back to Fight Predict
+            ← Back to ETFC Fight
           </a>
+
         </div>
       </div>
     </main>

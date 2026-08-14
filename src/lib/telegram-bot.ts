@@ -1,31 +1,11 @@
-const TELEGRAM_API =
-  `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}`;
+import TelegramBot from "node-telegram-bot-api";
 
-export async function telegramBotRequest(
-  method: string,
-  body: Record<string, unknown>,
-) {
-  const response = await fetch(
-    `${TELEGRAM_API}/${method}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    },
+const token = process.env.TELEGRAM_BOT_TOKEN;
+
+if (!token) {
+  throw new Error(
+    "TELEGRAM_BOT_TOKEN is not configured",
   );
-
-  const data = await response.json();
-
-  if (!response.ok || !data.ok) {
-    console.error("Telegram Bot API error:", data);
-
-    throw new Error(
-      data.description ||
-        "Telegram Bot API request failed",
-    );
-  }
-
-  return data;
 }
+
+export const bot = new TelegramBot(token);
