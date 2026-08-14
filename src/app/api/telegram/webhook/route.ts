@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BOT_TOKEN = "process.env.TELEGRAM_BOT_TOKEN!";
-const ADMIN_ID = 641429123
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
+const ADMIN_ID = 641429123;
 
 const users = new Set<number>();
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: "FightPredict Telegram webhook is running",
+  });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,10 +29,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // Register user
     users.add(chatId);
 
-    // /start
     if (text === "/start") {
       await sendMessage(
         chatId,
@@ -37,11 +42,8 @@ Predict upcoming fights and follow the action.
 /fights - View available fights
 /help - Show help`
       );
-
-      return NextResponse.json({ ok: true });
     }
 
-    // /help
     if (text === "/help") {
       await sendMessage(
         chatId,
@@ -50,11 +52,8 @@ Predict upcoming fights and follow the action.
 /fights - View available fights
 /help - Show available commands`
       );
-
-      return NextResponse.json({ ok: true });
     }
 
-    // /fights
     if (text === "/fights") {
       await sendMessage(
         chatId,
@@ -64,17 +63,13 @@ Predict upcoming fights and follow the action.
 
 Make your prediction and good luck!`
       );
-
-      return NextResponse.json({ ok: true });
     }
 
-    // /broadcast MESSAGE
     if (text.startsWith("/broadcast")) {
-      // Admin check
       if (userId !== ADMIN_ID) {
         await sendMessage(
           chatId,
-          "❌ You are not authorized to use this command."
+          "❌ You are not authorized."
         );
 
         return NextResponse.json({ ok: true });
@@ -87,7 +82,7 @@ Make your prediction and good luck!`
       if (!broadcast) {
         await sendMessage(
           chatId,
-          "⚠️ Please provide a message.\n\nExample:\n/broadcast Fight night is coming! 🥊"
+          "⚠️ Example:\n\n/broadcast Fight night is coming! 🥊"
         );
 
         return NextResponse.json({ ok: true });
@@ -116,16 +111,6 @@ Make your prediction and good luck!`
 👥 Users: ${users.size}
 ✅ Sent: ${sent}
 ❌ Failed: ${failed}`
-      );
-
-      return NextResponse.json({ ok: true });
-    }
-
-    // Unknown command
-    if (text.startsWith("/")) {
-      await sendMessage(
-        chatId,
-        "❓ Unknown command.\n\nUse /help to see available commands."
       );
     }
 
@@ -163,11 +148,7 @@ async function sendMessage(
 
     return data.ok === true;
   } catch (error) {
-    console.error(
-      `Failed to send message to ${chatId}:`,
-      error
-    );
-
+    console.error(error);
     return false;
   }
 }
