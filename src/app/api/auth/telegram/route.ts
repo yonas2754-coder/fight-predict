@@ -118,14 +118,14 @@ export async function POST(
             telegramUser.photo_url ??
             null,
 
-          balance: 1000,
+          balance: 0,
 
           transactions: {
             create: {
               type:
                 "INITIAL_BALANCE",
 
-              amount: 1000,
+              amount: 0,
 
               description:
                 "Initial virtual points",
