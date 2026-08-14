@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
+const BOT_TOKEN = "8868241882:AAE7xiGBAE6kaqdEwR6369NH3_uYrRGfXz0";
 const ADMIN_ID = 641429123
 
 const users = new Set<number>();
